@@ -15,6 +15,6 @@ def search_world_knowledge(query: str) -> str:
     Hope and Fear work"). Returns the most relevant reference excerpts.
     """
     try:
-        return search_knowledge(query, k=5)
+        return search_knowledge(query)  # top_k comes from models.yaml `retrieval:`
     except Exception as exc:  # keep a bad lookup from killing the beat
         return f"World knowledge lookup failed: {exc}"

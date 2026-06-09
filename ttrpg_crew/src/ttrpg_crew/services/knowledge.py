@@ -23,6 +23,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from ttrpg_crew.config_loader import config_section
+
 def _find_project_root() -> Path:
     """Locate the data root: the folder that holds ``knowledge/``.
 
@@ -142,13 +144,23 @@ def load_name_banks() -> dict[str, list[str]]:
     return banks
 
 
-def sample_name_pool(per_ancestry: int = 2) -> str:
+def _sampling_count(key: str, default: int) -> int:
+    """Per-beat injection count from models.yaml `sampling:`, with a default."""
+    try:
+        return int(config_section("sampling").get(key, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def sample_name_pool(per_ancestry: int | None = None) -> str:
     """A fresh per-beat sample of curated NPC names, grouped by ancestry.
 
     Injected into the GM prompt so new NPCs are named from the campaign's own
     banks instead of generic AI defaults (Elara, Kael, …). Re-sampled each beat
     for variety; names already in the transcript persist on their own.
     """
+    if per_ancestry is None:
+        per_ancestry = _sampling_count("names_per_ancestry", 2)
     banks = load_name_banks()
     groups = []
     for ancestry, names in banks.items():
@@ -170,7 +182,7 @@ def _palette_entry(raw: Any) -> dict[str, Any] | None:
     return None
 
 
-def sample_style_cues(per_category: int = 2) -> str:
+def sample_style_cues(per_category: int | None = None) -> str:
     """A fresh per-beat sample of the gothic register (config/style_palette.yaml).
 
     Injected into the GM prompt as a tone cue — a palette to reach for, not a
@@ -178,6 +190,8 @@ def sample_style_cues(per_category: int = 2) -> str:
     each word's meaning so the GM can use the word OR render its sense. Returns
     '' if no palette is configured.
     """
+    if per_category is None:
+        per_category = _sampling_count("style_cues_per_category", 2)
     import yaml
 
     path = _CONFIG_DIR / "style_palette.yaml"
@@ -433,8 +447,13 @@ def ensure_indexed(*, verbose: bool = True) -> int:
     return len(docs)
 
 
-def search_knowledge(query: str, k: int = 5) -> str:
+def search_knowledge(query: str, k: int | None = None) -> str:
     """Return the top-k lore/rules chunks for a query, formatted for a prompt."""
+    if k is None:
+        try:
+            k = int(config_section("retrieval").get("top_k", 5))
+        except (TypeError, ValueError):
+            k = 5
     collection = _collection()
     if collection.count() == 0:
         return "No world knowledge has been indexed."

@@ -25,6 +25,7 @@ for _stream in (sys.stdout, sys.stderr):
 from crewai import LLM
 from dotenv import load_dotenv
 
+from ttrpg_crew.config_loader import config_section
 from ttrpg_crew.flow import TTRPGFlow
 from ttrpg_crew.prompts.prompt_loader import resolve_tier_for_model
 
@@ -100,28 +101,36 @@ def _build_flow() -> TTRPGFlow:
     base_url = os.getenv("LOCAL_LLM_BASE_URL", "http://localhost:1234/v1")
     api_key = os.getenv("LOCAL_LLM_API_KEY", "lm-studio")
 
-    def _make_llm(model_id: str, *, url: str | None = None, key: str | None = None) -> LLM:
+    # Sampling knobs (temperature/top_p/max_tokens/timeout) come from models.yaml
+    # `llm:`. `defaults` is the narration baseline; manager/editor override it.
+    llm_cfg = config_section("llm")
+    base_params = dict(llm_cfg.get("defaults") or {})
+
+    def _role_params(role: str) -> dict:
+        params = dict(base_params)
+        params.update(llm_cfg.get(role) or {})
+        return params
+
+    def _make_llm(model_id: str, params: dict, *, url: str | None = None, key: str | None = None) -> LLM:
         model = model_id if model_id.startswith("openai/") else f"openai/{model_id}"
-        return LLM(model=model, base_url=url or base_url, api_key=key or api_key)
+        return LLM(model=model, base_url=url or base_url, api_key=key or api_key, **params)
 
     model_id = os.getenv("LOCAL_LLM_MODEL") or detect_loaded_model(base_url) or "local-model"
     tier = os.getenv("TTRPG_CREW_MODEL_TIER") or resolve_tier_for_model(model_id)
-    llm = _make_llm(model_id)
+    llm = _make_llm(model_id, base_params)
 
+    # Manager (LLM moderator) and editor get their own LLM with role sampling,
+    # even on the GM's model — sampling is per-request, so no model swap. A
+    # separate model id / endpoint is only used when its env var is set.
     manager_model_id = os.getenv("LOCAL_MANAGER_MODEL")
-    manager_llm = _make_llm(manager_model_id) if manager_model_id else llm
+    manager_llm = _make_llm(manager_model_id or model_id, _role_params("manager"))
 
-    # Editor runs on its own (optionally separate) endpoint so a small model can
-    # stay resident without evicting the GM. Falls back to the main llm if unset.
     editor_model_id = os.getenv("LOCAL_EDITOR_MODEL")
-    editor_llm = (
-        _make_llm(
-            editor_model_id,
-            url=os.getenv("LOCAL_EDITOR_BASE_URL"),
-            key=os.getenv("LOCAL_EDITOR_API_KEY"),
-        )
-        if editor_model_id
-        else None
+    editor_llm = _make_llm(
+        editor_model_id or model_id,
+        _role_params("editor"),
+        url=os.getenv("LOCAL_EDITOR_BASE_URL"),
+        key=os.getenv("LOCAL_EDITOR_API_KEY"),
     )
 
     if debug:

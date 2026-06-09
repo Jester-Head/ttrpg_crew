@@ -17,7 +17,30 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from ttrpg_crew.config_loader import config_section
+
 _CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
+
+# Auditor strictness — defaults here, overridable live via models.yaml `audit:`.
+_DEFAULT_AUDIT = {
+    "companion_bloat_words": 35,
+    "em_dash_max": 3,
+    "cluster_min": 2,
+    "density_min": 3,
+}
+
+
+def _audit_cfg() -> dict[str, int]:
+    """Resolve audit thresholds from models.yaml, with code defaults."""
+    cfg = config_section("audit")
+    out = dict(_DEFAULT_AUDIT)
+    for key in out:
+        if key in cfg:
+            try:
+                out[key] = int(cfg[key])
+            except (TypeError, ValueError):
+                pass
+    return out
 
 
 def _config_terms(filename: str) -> list[str]:
@@ -212,7 +235,7 @@ def audit_companion(
     has_dialogue = any(q in text for q in ('"', "“", "”"))
     word_count = len(stripped.split())
     if stripped and not stripped.lower().startswith("[observes") \
-            and not has_dialogue and word_count > 35:
+            and not has_dialogue and word_count > _audit_cfg()["companion_bloat_words"]:
         violations.append(
             Violation(
                 "companion_bloat",
@@ -269,6 +292,7 @@ _CALIBRATION_RE = re.compile(r"\b(it'?s worth noting|interestingly|notably)\b", 
 def audit_style(text: str) -> list[Violation]:
     """Flag AI tells in generated text: cliché names, purple diction, em-dashes."""
     violations: list[Violation] = []
+    ac = _audit_cfg()
 
     cliche_names = _cliche_names()
     for match in _NAME_TOKEN_RE.finditer(text):
@@ -303,7 +327,7 @@ def audit_style(text: str) -> list[Violation]:
     tier2_re = _word_list_re("cliche_tier2.txt")
     if tier2_re:
         hits = sorted({m.group(1).lower() for m in tier2_re.finditer(text)})
-        if len(hits) >= 2:
+        if len(hits) >= ac["cluster_min"]:
             violations.append(
                 Violation(
                     "cliche_cluster",
@@ -316,7 +340,7 @@ def audit_style(text: str) -> list[Violation]:
     tier3_re = _word_list_re("cliche_tier3.txt")
     if tier3_re:
         count = len(tier3_re.findall(text))
-        if count >= 3:
+        if count >= ac["density_min"]:
             violations.append(
                 Violation(
                     "cliche_density",
@@ -368,7 +392,7 @@ def audit_style(text: str) -> list[Violation]:
         )
 
     em = text.count(_EM_DASH)
-    if em >= 3:
+    if em >= ac["em_dash_max"]:
         violations.append(
             Violation(
                 "em_dash_overuse",
