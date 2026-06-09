@@ -1,0 +1,29 @@
+# The human player's protagonist. Edit any field freely.
+#
+# Loaded by services/knowledge.py:load_player_character() and injected into
+# every GM beat so scenes are framed around a real, consistent character.
+# `name` (drawn from knowledge/name_banks/human_names.txt) is how the GM and
+# companions refer to you.
+
+name: Shimoda Rice
+ancestry: Human
+pronouns: they/them
+
+concept: >
+  A courier — a neutral carrier of corked memory-vials between the faction
+  districts, trusted by every side precisely because they serve none. Canalborne:
+  raised on the city's waterways by neutral guild families.
+
+# The personal hook the story will press on. Make it specific.
+stake: >
+  Years on the Unmoored Paths have started you Fraying — the first stage of the
+  Dreg Condition — and your own past is thinning at the edges. <EDIT — the one
+  memory or person you would rather go hollow than lose.> Fellow Clara Moree, the
+  only soul ever to recover from Calcination, is your one proof it can be stopped.
+
+# Why the factions care about you — your built-in hooks (all canon).
+ties: >
+  All three factions hire you as a neutral courier. The Hollow Flame's Fracturers
+  covet the cross-faction vault access your courier work gives you. Fellow Clara
+  Moree of the Siderian Clade is your hope against the Fraying. The Bargemen and
+  your fellow couriers are your world.

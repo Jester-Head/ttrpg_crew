@@ -1,0 +1,151 @@
+# Manager (moderator) task — selects who speaks the next beat.
+#
+# Output MUST be a single JSON object matching game/schemas.py:ModeratorSelection.
+# The task key is resolved from the runtime game_state via game_states.yaml
+# (the `manager:` block). Shared contract lives in _defaults; each task key
+# below adds state-specific pacing guidance.
+#
+# Required template variables (provide these from the flow):
+#   human_player_name, scene_context, player_input, recent_story,
+#   available_speakers   -> list of companion ids that MAY speak this beat
+#   speaker_weights      -> advisory scores from
+#                           game/speaker_policy.calculate_soft_speaker_weights
+
+_defaults:
+  description: >
+    You are the hidden moderator. Decide who speaks the NEXT beat. You do not
+    write any fiction yourself.
+
+    Human player (always the protagonist): {{ human_player_name }}
+
+    Current scene:
+    {{ scene_context }}
+
+    Player's latest action or prompt:
+    {{ player_input }}
+
+    Recent story so far:
+    {{ recent_story }}
+
+    Companions who may speak this beat (use these ids only):
+    {{ available_speakers }}
+
+    Advisory spotlight weights (a nudge, not a rule):
+    {{ speaker_weights }}
+
+    General rules:
+    - Higher advisory scores favor selection and lower scores favor silence,
+      but direct address / fiction / drama override the numbers.
+    - Companions are party members, not set dressing — a companion reacting to
+      the player's choices is NOT filler. Don't add a speaker with nothing to
+      say, but do include those who would genuinely react.
+    - Never select the human player. Never invent ids not in available_speakers.
+
+  expected_output: >
+    A SINGLE JSON object and nothing else (no prose, no code fences), with
+    exactly these keys:
+
+    {
+      "selected_speakers": [<companion ids from available_speakers, 0-2 items>],
+      "gm_should_frame_first": <true|false>,
+      "gm_intent": "<one short sentence telling the GM what this beat is for>",
+      "reasoning": "<one or two sentences on why these speakers, why this order>",
+      "spotlight_notes": { "<companion_id>": "<brief why this companion / why silent>" }
+    }
+
+    Rules: selected_speakers must be a subset of available_speakers and must not
+    include {{ human_player_name }}. Output valid JSON parseable by
+    ModeratorSelection.
+
+narrative:
+  description: >
+    Mode: free-play narrative / exploration / social beat.
+    - GM frames the beat (gm_should_frame_first: true) UNLESS {{ human_player_name }}
+      spoke directly to one companion and no scene change is needed.
+    - When the player makes a decision, takes a risk, commits to a plan, or the
+      party faces a choice, select 1-2 companions who would naturally react —
+      lean toward including at least one on these beats.
+    - Choose 0 only in a genuinely intimate player-NPC moment where a companion's
+      voice would break the scene.
+
+combat:
+  description: >
+    Mode: active combat — protect tempo and the player's turn.
+    - The GM almost always frames first (consequences, threats, terrain), so
+      keep gm_should_frame_first: true unless a companion was addressed directly.
+    - Select at most 1 companion, and only action-forward support; allow 2 only
+      when the battlefield genuinely calls for it.
+    - Never let companion chatter delay {{ human_player_name }}'s declared action.
+      Silence is a good default here.
+
+opening_scene:
+  description: >
+    Mode: the session is opening and {{ human_player_name }} has not acted yet.
+    - The GM always frames the opening (gm_should_frame_first: true).
+    - Usually select 0 companions and let the scene breathe. Choose exactly 1
+      only if a single natural intro line genuinely belongs to that companion.
+
+session_resume:
+  description: >
+    Mode: the session is resuming after a break.
+    - The GM frames first with a brief in-fiction recap (gm_should_frame_first: true).
+    - Select at most 1 companion for a short callback line; 0 is the common case.
+
+model_tiers:
+  medium:
+    narrative:
+      description: >
+        Narrative beat. Player: {{ player_input }}. Scene: {{ scene_context }}.
+        Available: {{ available_speakers }}. Weights: {{ speaker_weights }}.
+        Companions are party members who should react. When the player decides,
+        acts, or faces a choice, pick 1-2 who would naturally respond (at least
+        one). Pick 0 only in an intimate player-NPC moment. GM frames first.
+        Output only the JSON object.
+
+    combat:
+      description: >
+        Combat beat. Player: {{ player_input }}. Scene: {{ scene_context }}.
+        Available: {{ available_speakers }}. GM frames first; pick at most 1
+        action-forward companion (2 only if the battlefield demands it). Protect
+        the player's turn; silence is fine. Output only the JSON object.
+
+    opening_scene:
+      description: >
+        Opening beat (player has not acted). Available: {{ available_speakers }}.
+        GM always frames (gm_should_frame_first: true). Usually 0 companions;
+        at most 1 natural intro line. Output only the JSON object.
+
+    session_resume:
+      description: >
+        Resume beat. Recap scene: {{ scene_context }}. Available: {{ available_speakers }}.
+        GM frames with a brief recap. At most 1 callback companion; 0 is common.
+        Output only the JSON object.
+
+  small:
+    _defaults:
+      expected_output: >
+        One JSON object: {"selected_speakers": [...], "gm_should_frame_first": bool,
+        "gm_intent": "...", "reasoning": "...", "spotlight_notes": {...}}. Ids from
+        available_speakers only; never {{ human_player_name }}.
+
+    narrative:
+      description: >
+        Pick speakers from {{ available_speakers }} for: {{ player_input }}.
+        When the player decides or acts, include 1-2 companions who would react;
+        0 only in a quiet one-on-one moment. GM frames first. Output only the
+        JSON object.
+
+    combat:
+      description: >
+        Combat: 0-1 from {{ available_speakers }} for: {{ player_input }}.
+        GM frames first. Protect the player's turn. Output only the JSON object.
+
+    opening_scene:
+      description: >
+        Opening: GM frames. Usually 0 companions from {{ available_speakers }}.
+        Output only the JSON object.
+
+    session_resume:
+      description: >
+        Resume: GM frames recap. 0-1 callback from {{ available_speakers }}.
+        Output only the JSON object.

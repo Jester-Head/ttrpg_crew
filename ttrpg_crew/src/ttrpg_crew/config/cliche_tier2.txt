@@ -1,0 +1,39 @@
+# Tier 2 AI words — fine on their own, suspicious in clusters. The auditor flags
+# only when TWO OR MORE appear in the same output. One word, lowercase, per line.
+# '#' comments ignored. Loaded live by game/validator.py.
+#
+# Deliberately excludes setting-canon and gothic vocabulary: "resonate" (canon),
+# "navigate" (a canal city literally navigates), and atmospheric words.
+
+harness
+foster
+elevate
+unleash
+streamline
+empower
+bolster
+spearhead
+revolutionize
+facilitate
+underpin
+nuanced
+multifaceted
+ecosystem
+plethora
+encompass
+catalyze
+reimagine
+galvanize
+augment
+cultivate
+illuminate
+elucidate
+juxtapose
+cornerstone
+paramount
+poised
+burgeoning
+nascent
+quintessential
+overarching
+crucial

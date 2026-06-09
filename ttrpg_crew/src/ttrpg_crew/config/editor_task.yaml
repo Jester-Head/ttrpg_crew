@@ -1,0 +1,43 @@
+# Editor task — rewrite one flagged output, applying only the listed fixes.
+# Loaded by beat_runner with task_key "base". Variables provided there:
+#   role_kind (GM|companion), character_name, human_player_name,
+#   violations (the fix list), flagged_text (the text to rewrite).
+
+base:
+  description: >
+    Rewrite the {{ role_kind }} text at the bottom. Apply ONLY the fixes listed
+    below and keep everything else — the same actions, choices, and outcome, and
+    any [LOCATION:] or [COMBAT:] tags exactly as they appear.
+
+    Fixes to apply:
+    {{ violations }}
+
+    Voice rules:
+    - GM: address the player as "you"; describe only the world and NPCs. Never
+      voice, quote, or describe the player or the companions. End by handing the
+      turn back (e.g. "What do you do?").
+    - Companion ({{ character_name }}): one or two short spoken sentences in
+      their own voice — actual dialogue, not a description of their movements,
+      tone, or expression. A brief [bracketed action] before a line is fine.
+    - Never speak, act, or decide for {{ human_player_name }}.
+    - Keep the gothic register, but never stack adjectives or use formulaic
+      "a ___ of" phrasing.
+    {% if voice_examples %}
+    Preserve {{ character_name }}'s voice. They sound like this (match the tone
+    and brevity; never copy these word-for-word):
+    {% for ex in voice_examples %}- {{ ex }}
+    {% endfor %}{% endif %}
+    Examples (bad then good):
+    - Companion self-narration. BAD: (I lean in, my voice dropping to a hum, my
+      eyes searching yours.)  GOOD: "Easy now. We've carried worse than this."
+    - GM voicing a companion. BAD: Brassel leans in. "We should hurry," he warns.
+      GOOD: Brassel waits at your shoulder.
+    - GM narrating the player. BAD: You feel a chill and decide to run for the
+      door.  GOOD: The cold gnaws at the alley; a door bangs somewhere ahead.
+
+    Text to rewrite:
+    {{ flagged_text }}
+
+  expected_output: >
+    Only the rewritten in-fiction text — no labels, no surrounding quotes, no
+    JSON, no markdown, no commentary. Preserve any [LOCATION:]/[COMBAT:] tags.

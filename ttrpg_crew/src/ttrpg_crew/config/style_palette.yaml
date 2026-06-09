@@ -1,0 +1,73 @@
+# Gothic / grimdark register the GM should REACH FOR — positive style guidance.
+# A small rotating sample is injected into the GM prompt each beat as a tone cue.
+#
+# Each entry can be a bare word OR a mapping with two optional keys:
+#   - word: the term itself
+#     means: a plain-language gloss. The GM is told it may use the WORD or just
+#            render its MEANING — so "dirge" can simply become "a slow, sorrowful
+#            song of mourning". Often the meaning is the better, less show-offy prose.
+#     ai_favored: true  -> a word language models already over-reach for. Still
+#            allowed (not flagged), but the cues will NOT push it. Leave it off
+#            (or false) for the distinctive gems you DO want encouraged.
+#
+# This is a palette, not a checklist: the GM uses it only where it earns its
+# place, never forcing a word or stacking adjectives. Edit/extend freely.
+
+nouns:        # the architecture of decay
+  - word: sepulchre
+    means: a tomb or burial vault
+  - word: miasma
+    means: a thick, choking vapor of decay
+  - word: revenant
+    means: one returned from the dead
+  - word: ossuary
+    means: a vault for the bones of the dead
+  - word: umbra
+    means: the deepest part of a shadow
+  - word: abyss
+    means: a bottomless void
+    ai_favored: true
+
+adjectives:   # mood and texture
+  - word: tenebrous
+    means: dark and gloom-laden
+  - word: stygian
+    means: pitch-dark, of the underworld
+  - word: caliginous
+    means: misty and dark
+  - word: phantasmagoric
+    means: shifting like a nightmare
+  - word: macabre
+    means: death-haunted, grim
+    ai_favored: true
+  - word: malevolent
+    means: wishing harm
+    ai_favored: true
+
+verbs:        # action and intrusion
+  - word: adumbrate
+    means: to foreshadow darkly
+  - word: languish
+    means: to waste slowly away
+  - word: desecrate
+    means: to violate something sacred
+  - word: lurch
+    means: to move in an abrupt, unsteady jerk
+  - word: fester
+    means: to rot and worsen
+  - word: wither
+    means: to shrivel and fade
+
+sensory:      # smells, sights, sounds
+  - word: dirge
+    means: a slow, sorrowful song of mourning
+  - word: sulphur
+    means: the reek of brimstone
+  - word: ozone
+    means: the sharp tang after lightning or dark magic
+  - word: mildew
+    means: the damp must of forgotten places
+  - word: obsidian
+    means: black volcanic glass
+  - word: cinder
+    means: a charred, burnt-out remnant

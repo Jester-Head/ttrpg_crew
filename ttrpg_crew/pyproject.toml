@@ -1,0 +1,19 @@
+[project]
+name = "ttrpg_crew"
+version = "0.1.0"
+description = "CrewAI TTRPG"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "crewai",
+    "crewai-tools",
+    "litellm",
+    "pydantic",
+    "python-dotenv",
+]
+
+[project.scripts]
+run_ttrpg = "ttrpg_crew.main:run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

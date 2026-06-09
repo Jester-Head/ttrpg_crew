@@ -1,0 +1,37 @@
+# Model tier used by prompt_loader.py when selecting agent/task prompt variants.
+# A tier is how much instruction detail a model gets — larger, more capable
+# models get the richer "large" prompts; small local models get terse, strict
+# ones they can actually follow.
+default_tier: large
+
+tiers:
+  large:
+    description: Full prompts; nuanced constraints and implicit rules.
+  medium:
+    description: Condensed prompts; explicit bullet rules.
+  small:
+    description: Minimal prompts; strict output format and bullet rules.
+
+# How prompt_loader.resolve_tier_for_model() picks a tier from the loaded model.
+# Order: an `overrides` substring match wins; otherwise the parameter count is
+# parsed from the model id and bucketed by `size_tiers`; otherwise default_tier.
+tier_selection:
+  overrides:
+    # "substring in model id (lowercased)": tier
+    # e.g. "llama-3.1-70b": large
+    # e.g. "qwen2.5-7b": medium   # override if a 7B punches above its weight
+  size_tiers:
+    # "max billions of params": tier — first threshold the model fits under.
+    8: small
+    30: medium
+    9999: large
+
+# Knowledge-base retrieval knobs (services/knowledge.py). Changing sources or
+# chunking requires deleting .knowledge_store/ to force a re-index.
+retrieval:
+  collection: ttrpg_knowledge
+  sources:                 # which corpora get embedded for GM lookups
+    - "lore/*.md"
+    - "rules/srd/*.md"
+  chunk_chars: 1000        # target characters per chunk
+  chunk_overlap: 150       # overlap carried between chunks

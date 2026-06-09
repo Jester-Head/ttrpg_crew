@@ -1,0 +1,394 @@
+"""Hybrid knowledge access for the TTRPG.
+
+Two halves, by design (see the project's "hybrid" knowledge decision):
+
+1. Direct injection — small, high-value files are read straight into prompt
+   variables every beat: the campaign premise and the latest session recap.
+
+2. Retrieval (RAG) — the large reference corpora (lore + SRD rules) are indexed
+   once into a persistent chromadb collection, embedded by the LOCAL LM Studio
+   embedding model. The GM reaches them through a search tool, so each beat only
+   pays a cheap query, never a re-index.
+
+Everything here is local: embeddings go to the LM Studio OpenAI-compatible
+endpoint, nothing leaves the machine.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import random
+import re
+from pathlib import Path
+from typing import Any
+
+# Project root = .../ttrpg_crew (the folder that holds pyproject.toml + knowledge/).
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_KNOWLEDGE_DIR = _PROJECT_ROOT / "knowledge"
+_CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
+_STORE_DIR = _PROJECT_ROOT / ".knowledge_store"
+
+def _retrieval_config() -> dict[str, Any]:
+    """Read the `retrieval:` section of config/models.yaml (with fallbacks)."""
+    import yaml
+
+    path = _CONFIG_DIR / "models.yaml"
+    if path.is_file():
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("retrieval"), dict):
+            return data["retrieval"]
+    return {}
+
+
+_rc = _retrieval_config()
+
+# Retrieval knobs — sourced from config/models.yaml (see `retrieval:`), so the
+# corpora and chunk sizes are curated in config, not hardcoded here. Name banks
+# (generation) and sessions (direct-injected) are intentionally not listed.
+_COLLECTION = _rc.get("collection", "ttrpg_knowledge")
+_RAG_GLOBS = tuple(_rc.get("sources") or ("lore/*.md", "rules/srd/*.md"))
+_CHUNK_CHARS = int(_rc.get("chunk_chars", 1000))
+_CHUNK_OVERLAP = int(_rc.get("chunk_overlap", 150))
+
+
+# --------------------------------------------------------------------------- #
+# Direct injection (no embeddings)
+# --------------------------------------------------------------------------- #
+def load_premise() -> str:
+    """Return the campaign premise text, or '' if the file is empty/missing."""
+    path = _KNOWLEDGE_DIR / "campaign" / "premise.md"
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8").strip()
+
+
+def load_latest_session_recap() -> str:
+    """Return the most recent session summary, or '' if there are none."""
+    session_dir = _KNOWLEDGE_DIR / "sessions"
+    if not session_dir.is_dir():
+        return ""
+    files = sorted(session_dir.glob("*.md"))
+    if not files:
+        return ""
+    return files[-1].read_text(encoding="utf-8").strip()
+
+
+_NAME_BANK_DIR = _KNOWLEDGE_DIR / "name_banks"
+
+
+def load_name_banks() -> dict[str, list[str]]:
+    """Load curated names keyed by ancestry (e.g. {'human': [...], 'elf': [...]})."""
+    banks: dict[str, list[str]] = {}
+    if not _NAME_BANK_DIR.is_dir():
+        return banks
+    for path in sorted(_NAME_BANK_DIR.glob("*_names.txt")):
+        ancestry = path.stem.replace("_names", "")
+        names = [n.strip() for n in path.read_text(encoding="utf-8").splitlines() if n.strip()]
+        if names:
+            banks[ancestry] = names
+    return banks
+
+
+def sample_name_pool(per_ancestry: int = 2) -> str:
+    """A fresh per-beat sample of curated NPC names, grouped by ancestry.
+
+    Injected into the GM prompt so new NPCs are named from the campaign's own
+    banks instead of generic AI defaults (Elara, Kael, …). Re-sampled each beat
+    for variety; names already in the transcript persist on their own.
+    """
+    banks = load_name_banks()
+    groups = []
+    for ancestry, names in banks.items():
+        picks = random.sample(names, min(per_ancestry, len(names)))
+        groups.append(f"{ancestry.capitalize()}: {', '.join(picks)}")
+    return "; ".join(groups)
+
+
+def _palette_entry(raw: Any) -> dict[str, Any] | None:
+    """Normalize a palette entry (bare word or mapping) to {word, means, ai_favored}."""
+    if isinstance(raw, dict) and str(raw.get("word", "")).strip():
+        return {
+            "word": str(raw["word"]).strip(),
+            "means": str(raw.get("means", "")).strip(),
+            "ai_favored": bool(raw.get("ai_favored", False)),
+        }
+    if isinstance(raw, str) and raw.strip():
+        return {"word": raw.strip(), "means": "", "ai_favored": False}
+    return None
+
+
+def sample_style_cues(per_category: int = 2) -> str:
+    """A fresh per-beat sample of the gothic register (config/style_palette.yaml).
+
+    Injected into the GM prompt as a tone cue — a palette to reach for, not a
+    checklist. Prefers the distinctive gems over AI-favored words, and surfaces
+    each word's meaning so the GM can use the word OR render its sense. Returns
+    '' if no palette is configured.
+    """
+    import yaml
+
+    path = _CONFIG_DIR / "style_palette.yaml"
+    if not path.is_file():
+        return ""
+    with path.open(encoding="utf-8") as handle:
+        data = yaml.safe_load(handle)
+    if not isinstance(data, dict):
+        return ""
+
+    picks: list[str] = []
+    for words in data.values():
+        if not isinstance(words, list):
+            continue
+        entries = [e for e in (_palette_entry(w) for w in words) if e]
+        if not entries:
+            continue
+        # Push the distinctive gems; fall back to favored only if that's all there is.
+        pool = [e for e in entries if not e["ai_favored"]] or entries
+        for entry in random.sample(pool, min(per_category, len(pool))):
+            picks.append(f"{entry['word']} ({entry['means']})" if entry["means"] else entry["word"])
+
+    random.shuffle(picks)
+    return "; ".join(picks)
+
+
+def load_campaign_frame() -> dict[str, Any]:
+    """Load the campaign frame (knowledge/campaign/frame.yaml), or {} if absent."""
+    import yaml
+
+    path = _KNOWLEDGE_DIR / "campaign" / "frame.yaml"
+    if not path.is_file():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else {}
+
+
+def load_campaign_cast() -> list[dict[str, Any]]:
+    """Load the recurring NPC cast (knowledge/campaign/cast.yaml)."""
+    import yaml
+
+    path = _KNOWLEDGE_DIR / "campaign" / "cast.yaml"
+    if not path.is_file():
+        return []
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    cast = data.get("cast") if isinstance(data, dict) else None
+    return [m for m in cast if isinstance(m, dict)] if isinstance(cast, list) else []
+
+
+def format_cast(cast: list[dict[str, Any]]) -> str:
+    """Compact one-line-per-NPC brief for the GM prompt (keeps them consistent)."""
+    def _flat(value: Any) -> str:
+        return " ".join(str(value).split())
+
+    lines = []
+    for m in cast:
+        name = _flat(m.get("name", "")).strip()
+        if not name:
+            continue
+        faction = _flat(m.get("faction", "")).strip()
+        role = _flat(m.get("role", "")).strip()
+        goal = _flat(m.get("goal", "")).strip()
+        voice = _flat(m.get("voice", "")).strip()
+        head = f"{name} ({faction})" if faction else name
+        if role:
+            head += f" [{role}]"
+        tail = []
+        if goal:
+            tail.append(f"wants {goal}")
+        if voice:
+            tail.append(f"voice: {voice}")
+        line = f"- {head}"
+        if tail:
+            line += ": " + "; ".join(tail)
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def load_player_character() -> dict[str, Any]:
+    """Load the protagonist definition (config/player_character.yaml)."""
+    import yaml
+
+    path = _CONFIG_DIR / "player_character.yaml"
+    if not path.is_file():
+        return {}
+    with path.open(encoding="utf-8") as handle:
+        data = yaml.safe_load(handle)
+    return data if isinstance(data, dict) else {}
+
+
+def format_protagonist(pc: dict[str, Any]) -> str:
+    """Render the protagonist as a compact one-paragraph brief for prompts."""
+    if not pc:
+        return "An unnamed newcomer to Gloamvere City."
+    name = str(pc.get("name", "")).strip() or "The protagonist"
+    tags = [str(pc.get(f, "")).strip() for f in ("pronouns", "ancestry")]
+    tags = [t for t in tags if t]
+    head = f"{name} ({', '.join(tags)})" if tags else name
+    parts = [head]
+    for field in ("concept", "stake", "ties"):
+        value = str(pc.get(field, "")).strip()
+        if value:
+            parts.append(f"{field.capitalize()}: {value}")
+    return " ".join(parts)
+
+
+# --------------------------------------------------------------------------- #
+# Retrieval (RAG) over lore + rules
+# --------------------------------------------------------------------------- #
+def _embedding_fn():
+    """chromadb embedding function pointed at the LOCAL LM Studio embed model."""
+    from chromadb.utils.embedding_functions.openai_embedding_function import (
+        OpenAIEmbeddingFunction,
+    )
+
+    base_url = os.getenv("LOCAL_LLM_BASE_URL", "http://localhost:1234/v1")
+    model_name = os.getenv(
+        "LOCAL_EMBED_MODEL", "text-embedding-nomic-embed-text-v1.5"
+    )
+    api_key = os.getenv("LOCAL_LLM_API_KEY", "lm-studio")
+
+    return OpenAIEmbeddingFunction(
+        api_key=api_key,
+        model_name=model_name,
+        api_base=base_url,
+    )
+
+
+def _collection():
+    """Get-or-create the persistent knowledge collection."""
+    import chromadb
+    from chromadb.config import Settings
+
+    _STORE_DIR.mkdir(parents=True, exist_ok=True)
+    client = chromadb.PersistentClient(
+        path=str(_STORE_DIR),
+        settings=Settings(anonymized_telemetry=False),
+    )
+    return client.get_or_create_collection(
+        _COLLECTION, embedding_function=_embedding_fn()
+    )
+
+
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*\S)\s*$")
+
+
+def _split_sections(text: str) -> list[tuple[str, str]]:
+    """Split markdown into (heading-trail, body) sections.
+
+    The trail is the chain of enclosing headings (e.g. "Old Blood Council ▸
+    Patriarch Thorne Blackwater"), so each chunk knows where it lives and never
+    fuses content from unrelated sections.
+    """
+    sections: list[tuple[str, str]] = []
+    stack: list[tuple[int, str]] = []
+    trail = ""
+    body: list[str] = []
+
+    for line in text.split("\n"):
+        match = _HEADING_RE.match(line)
+        if not match:
+            body.append(line)
+            continue
+        joined = "\n".join(body).strip()
+        if joined:
+            sections.append((trail, joined))
+        body = []
+        level = len(match.group(1))
+        title = match.group(2).strip()
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        stack.append((level, title))
+        trail = " > ".join(t for _, t in stack)
+
+    joined = "\n".join(body).strip()
+    if joined:
+        sections.append((trail, joined))
+    return sections
+
+
+def _split_long(body: str) -> list[str]:
+    """Greedy paragraph packing for sections longer than the chunk budget."""
+    paragraphs = [p.strip() for p in body.split("\n\n") if p.strip()]
+    pieces: list[str] = []
+    current = ""
+    for para in paragraphs:
+        if current and len(current) + len(para) + 2 > _CHUNK_CHARS:
+            pieces.append(current)
+            current = current[-_CHUNK_OVERLAP:] + "\n\n" + para
+        else:
+            current = f"{current}\n\n{para}" if current else para
+    if current:
+        pieces.append(current)
+    return pieces or [body]
+
+
+def _iter_doc_chunks(rel: str, text: str):
+    """Yield (id, doc_text) heading-aware chunks for one source file.
+
+    Each chunk is self-labeling: "[rel ▸ heading trail]" so retrieved context
+    carries its own provenance and section.
+    """
+    for trail, body in _split_sections(text):
+        label = f"{rel} > {trail}" if trail else rel
+        for piece in _split_long(body):
+            doc = f"[{label}]\n{piece}"
+            yield hashlib.sha256(f"{label}::{piece}".encode()).hexdigest(), doc
+
+
+def _iter_source_files():
+    for pattern in _RAG_GLOBS:
+        yield from sorted(_KNOWLEDGE_DIR.glob(pattern))
+
+
+def ensure_indexed(*, verbose: bool = True) -> int:
+    """Index lore + rules into the collection if it is empty. Returns chunk count.
+
+    Safe to call every run: if the collection already holds documents, this is a
+    no-op (no re-embedding). Embedding errors propagate to the caller, which may
+    choose to disable retrieval and continue.
+    """
+    collection = _collection()
+    existing = collection.count()
+    if existing > 0:
+        if verbose:
+            print(f"[knowledge] collection ready ({existing} chunks, cached)")
+        return existing
+
+    ids: list[str] = []
+    docs: list[str] = []
+    for path in _iter_source_files():
+        rel = path.relative_to(_KNOWLEDGE_DIR).as_posix()
+        text = path.read_text(encoding="utf-8")
+        for chunk_id, doc in _iter_doc_chunks(rel, text):
+            ids.append(chunk_id)
+            docs.append(doc)
+
+    if not docs:
+        if verbose:
+            print("[knowledge] no source files found to index")
+        return 0
+
+    if verbose:
+        print(f"[knowledge] indexing {len(docs)} chunks (one-time, embedding locally)...")
+    # Batch to keep request sizes sane for the local embedding server.
+    for start in range(0, len(docs), 64):
+        collection.add(
+            ids=ids[start : start + 64],
+            documents=docs[start : start + 64],
+        )
+    if verbose:
+        print(f"[knowledge] indexed {len(docs)} chunks")
+    return len(docs)
+
+
+def search_knowledge(query: str, k: int = 5) -> str:
+    """Return the top-k lore/rules chunks for a query, formatted for a prompt."""
+    collection = _collection()
+    if collection.count() == 0:
+        return "No world knowledge has been indexed."
+
+    result = collection.query(query_texts=[query], n_results=k)
+    docs = (result.get("documents") or [[]])[0]
+    if not docs:
+        return "No relevant world knowledge found."
+    return "\n\n---\n\n".join(docs)

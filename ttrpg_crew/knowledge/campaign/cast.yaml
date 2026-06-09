@@ -1,0 +1,51 @@
+# Campaign Cast — the recurring NPCs this story turns on.  *** PLACEHOLDER. ***
+#
+# Names drawn from knowledge/name_banks/. Each ties (loosely, by name) to a clock
+# in frame.yaml. A compact summary is injected into the GM so these characters
+# stay consistent across scenes; INCIDENTAL NPCs are still generated on the fly
+# from the name banks — only the people who recur and matter live here.
+
+cast:
+  - name: Sharon Naomi
+    ancestry: Human
+    faction: unaligned (commoner)
+    role: patron
+    drives_clock: none
+    goal: >
+      Get the stolen Tinctura of her dead sister to the Spiritus Conclave to be
+      given a vessel, before the Siderian Clade reclaims and refines it.
+    voice: breathless, frightened, grateful to the point of tears
+    state: hunted and out of time — she is the "stranger" of the opening scene
+
+  - name: Chiaki Wang
+    ancestry: Human
+    faction: Siderian Clade (Logician, Command track)
+    role: antagonist
+    drives_clock: The Clade Closes In
+    goal: >
+      Recover the flagged memory and the courier who moved it, and close the
+      breach quietly before it becomes a Command embarrassment.
+    voice: precise, unhurried, bloodless; calls sentiment "inefficient fuel"
+    state: assembling a recovery sweep, authorizing Vigil constructs
+
+  - name: Aphreith Breezejumper
+    ancestry: Katari
+    faction: Hollow Flame (Fracturer)
+    role: recruiter
+    drives_clock: The Hollow Flame's Patience
+    goal: >
+      Win the player's cross-faction courier access to crack a sealed Old Blood
+      vault, offering shelter from the Clade as the price of cooperation.
+    voice: warm, persuasive, idealistic with a blade under it
+    state: shadowing the player, making escalating offers
+
+  - name: Clara Moree
+    ancestry: Human
+    faction: Siderian Clade (Fellow, Scholar track)
+    role: ally
+    drives_clock: none
+    goal: >
+      Continue her Calcination-reversal research; she is the only person to come
+      back from the Dreg, and the player's one real hope against the Fraying.
+    voice: careful, weary, guardedly hopeful
+    state: indispensable to Command yet distrusted by her own track; hard to reach

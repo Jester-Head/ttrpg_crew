@@ -1,0 +1,71 @@
+# Campaign Frame — the GM's structural guide.  *** PLACEHOLDER — edit freely. ***
+#
+# This is the source of the OPENING and the soft rails that keep the story
+# moving — beats to steer toward, clocks that advance on their own, and planned
+# encounters — even when the player wanders. The principle is pressure, not
+# script: clocks tick and consequences find the player; nobody takes the wheel
+# from them.
+#
+# Wiring status: the GM currently reads `opening.location` from here. The rest
+# (beats/clocks/encounters/pacing) is the scaffold for the future "director"
+# layer in the moderator — written now so the shape is fixed, not yet enforced.
+
+title: The Last of What You Were
+
+# Where and how the story opens. The GM frames the first scene from this.
+opening:
+  location: The Residuum, a tavern in the Unmoored Commons
+  situation: >
+    A stranger with a fraying coat and frightened eyes presses a sealed,
+    cold-to-the-touch vial into your hands and begs you to courier it to the
+    Spiritus Conclave before dawn — no questions, double the usual fee. They do
+    not say what is in it, only that the Siderian Clade must never get it back.
+
+# The dramatic question the campaign turns on.
+premise_hook: >
+  What is a memory worth — and whose — when your own are running out?
+
+# Beats to steer TOWARD (aims, not a fixed path). Reorder/skip as the player leads.
+beats:
+  - The delivery is offered; the player learns (or refuses to learn) what the vial holds.
+  - The Clade discovers the memory is gone and begins hunting the courier who took it.
+  - The Hollow Flame offers protection — in exchange for the player's cross-faction access.
+  - The vial's memory proves to matter to more than its owner; the Clade fears it.
+  - The player seeks Fellow Clara Moree, the only soul to recover from Calcination.
+  - A final choice: deliver, keep, destroy, or trade the memory — and pay what it costs.
+
+# Clocks: looming threats that advance on their own (faster when the player
+# stalls or derails). When a clock fills, its consequence fires.
+clocks:
+  - name: The Fraying
+    segments: 6
+    advances_when: the player overexerts, handles high-tier memory, or marks Stress
+    when_full: they slip from Fraying into Eroding (Dreg Condition, stage 2)
+  - name: The Clade Closes In
+    segments: 4
+    advances_when: the player lingers, is recognized, or shows the vial in Clade ground
+    when_full: Clade enforcers and Vigil constructs corner the player
+  - name: The Hollow Flame's Patience
+    segments: 4
+    advances_when: the player refuses or strings along the Hollow Flame
+    when_full: the Fracturers stop asking and take the player's vault access by force
+
+# Planned encounters — introduced diegetically when a trigger fires, never forced.
+# (Stat the adversaries from rules/srd/appendix_a_adversaries.md; that list is a
+# stub right now, so these are descriptive until you add the blocks.)
+encounters:
+  - name: Clade Sweep
+    trigger: "'The Clade Closes In' fills, or the player flaunts the vial in the Glass Spine"
+    adversaries: a Clade Logician directing two Vigil security constructs
+  - name: Dredge-Canals Ambush
+    trigger: the player flees into the Dredge-Canals or trades on the Grey Market
+    adversaries: desperate black-market operators from The Still
+
+# Guidance for the GM/moderator on how hard to steer.
+pacing:
+  rails_strength: medium   # loose | medium | tight — how firmly to push toward the next beat
+  notes: >
+    When the player engages a beat, ease off and follow them. When they stall or
+    derail, advance a clock and let the consequence pull them back. Introduce
+    combat through triggers and fiction (a clock filling, a line crossed), never
+    as a non-sequitur. Keep the Fraying personal: every cost lands on the player.

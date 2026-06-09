@@ -1,0 +1,39 @@
+# AI-default given names the auditor rejects in generated NPCs.
+# One per line, lowercase. Lines starting with # are ignored.
+# Edit freely — add names the model overuses, remove any that fit YOUR world.
+# (Loaded live by game/validator.py; changes apply on the next beat, no restart.)
+
+elara
+elowen
+elowyn
+lyra
+lyanna
+lyria
+aelin
+aeris
+aerin
+seraphina
+seraphine
+vesper
+cassian
+kael
+kaela
+kaelen
+kaedan
+caelum
+caelan
+lucien
+lucian
+aurelia
+isolde
+valerius
+sylvara
+draven
+eldrin
+faelan
+lirael
+thalia
+ravenna
+sorin
+malakai
+nyx
