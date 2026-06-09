@@ -46,6 +46,7 @@ from ttrpg_crew.services.knowledge import (
     load_latest_session_recap,
     load_player_character,
     load_premise,
+    require_data_root,
     sample_name_pool,
     sample_style_cues,
     search_knowledge,
@@ -88,6 +89,11 @@ class TTRPGFlow:
         self.editor_llm = editor_llm or llm
         self.llm_tier_map = llm_tier_map
         self.transcript = Transcript()
+
+        # Fail fast with guidance if the campaign/lore/SRD corpus is missing
+        # (e.g. installed wrong, or launched from a layout where the data root
+        # can't be found). Better a clear error here than a silently empty game.
+        require_data_root()
 
         # The protagonist anchors every scene. If a player character is defined,
         # the GM refers to the player by that name (so the boundary rules and

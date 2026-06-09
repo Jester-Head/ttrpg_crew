@@ -9,6 +9,11 @@ dependencies = [
     "litellm",
     "pydantic",
     "python-dotenv",
+    # Imported directly by the engine; also pulled in by crewai, but declared
+    # here so a fresh install can't silently miss them.
+    "chromadb",
+    "jinja2",
+    "pyyaml",
 ]
 
 [project.scripts]

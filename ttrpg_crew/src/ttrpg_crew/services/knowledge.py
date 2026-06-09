@@ -23,11 +23,63 @@ import re
 from pathlib import Path
 from typing import Any
 
-# Project root = .../ttrpg_crew (the folder that holds pyproject.toml + knowledge/).
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+def _find_project_root() -> Path:
+    """Locate the data root: the folder that holds ``knowledge/``.
+
+    The Python package lives under ``src/ttrpg_crew/``, but the campaign + SRD
+    corpora and the persistent vector store sit at the project root beside it.
+    Assuming a fixed parent depth breaks the moment the package is imported from
+    somewhere else (a non-editable install puts it under ``site-packages``), so
+    instead we walk up from this file until we find the folder that actually
+    contains ``knowledge/``. ``TTRPG_CREW_ROOT`` overrides this for unusual
+    layouts (e.g. data kept apart from the code).
+    """
+    override = os.getenv("TTRPG_CREW_ROOT")
+    if override:
+        return Path(override).expanduser().resolve()
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "knowledge").is_dir():
+            return parent
+    # Last resort: the historical src-layout depth (services -> ttrpg_crew -> src -> root).
+    return here.parents[3]
+
+
+_PROJECT_ROOT = _find_project_root()
 _KNOWLEDGE_DIR = _PROJECT_ROOT / "knowledge"
 _CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
 _STORE_DIR = _PROJECT_ROOT / ".knowledge_store"
+
+
+def data_root() -> Path:
+    """The resolved data root (the folder that holds ``knowledge/``)."""
+    return _PROJECT_ROOT
+
+
+def require_data_root() -> None:
+    """Fail early, with guidance, if the knowledge corpus is not where we expect.
+
+    A missing corpus is fatal: the game has no premise, lore, or rules without
+    it. That is different from a transient embedding-server outage (which the
+    caller may catch and continue past with retrieval disabled), so this raises
+    a clear, actionable error instead of letting the game start up empty.
+    """
+    missing = [
+        name
+        for name, path in (
+            ("knowledge/", _KNOWLEDGE_DIR),
+            ("knowledge/campaign/", _KNOWLEDGE_DIR / "campaign"),
+            ("config/", _CONFIG_DIR),
+        )
+        if not path.is_dir()
+    ]
+    if missing:
+        raise RuntimeError(
+            f"TTRPG data not found under {_PROJECT_ROOT} (missing: {', '.join(missing)}). "
+            "The campaign, lore, and SRD files live at the project root. Either run "
+            "from a cloned source checkout after `pip install -e .`, or set "
+            "TTRPG_CREW_ROOT to the folder that contains `knowledge/`."
+        )
 
 def _retrieval_config() -> dict[str, Any]:
     """Read the `retrieval:` section of config/models.yaml (with fallbacks)."""
