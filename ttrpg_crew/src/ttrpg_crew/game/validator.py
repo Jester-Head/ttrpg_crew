@@ -401,6 +401,23 @@ def audit_style(text: str) -> list[Violation]:
             )
         )
 
+    # Register break: modern/casual phrasing that breaks the period tone and
+    # reads as the player stepping out of character. One is enough to flag.
+    register_re = _word_list_re("register_breaks.txt")
+    if register_re:
+        m = register_re.search(text)
+        if m:
+            violations.append(
+                Violation(
+                    "register_break",
+                    f"too-casual/modern phrasing breaks the period tone: '{m.group(1)}'",
+                    suggestion=(
+                        "reword in the campaign's register; this reads as out-of-"
+                        "character or anachronistic for the setting"
+                    ),
+                )
+            )
+
     return violations
 
 

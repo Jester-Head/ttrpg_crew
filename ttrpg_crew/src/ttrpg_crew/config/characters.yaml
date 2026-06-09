@@ -70,6 +70,7 @@ characters:
     examples:
       - '[checks the exits] "Two ways out. Try not to need a third."'
       - '"Keep your head down. If that thing starts humming, I hear about it first."'
+      - '[checks the exits] "Smells like stale ale and bad decisions. Let''s try not to become part of the decor."'
     selection:
       talkativeness: 0.75
       expertise: [investigation, social, negotiation]

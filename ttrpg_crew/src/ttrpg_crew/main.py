@@ -144,6 +144,13 @@ def _build_flow() -> TTRPGFlow:
     # Set TTRPG_LLM_MODERATOR=1 to use the LLM manager agent instead.
     use_llm_moderator = bool(os.getenv("TTRPG_LLM_MODERATOR"))
 
+    # Set TTRPG_DIRECT_COMPANIONS=1 to generate companions as direct chat
+    # completions (no CrewAI ReAct preamble). A/B toggle while we evaluate it.
+    use_direct_companions = bool(os.getenv("TTRPG_DIRECT_COMPANIONS"))
+
+    if debug:
+        print(f"[ttrpg] direct_companions={use_direct_companions}")
+
     return TTRPGFlow(
         llm=llm,
         manager_llm=manager_llm,
@@ -151,6 +158,7 @@ def _build_flow() -> TTRPGFlow:
         tier=tier,
         debug=debug,
         use_llm_moderator=use_llm_moderator,
+        use_direct_companions=use_direct_companions,
     )
 
 

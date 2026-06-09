@@ -70,11 +70,15 @@ class TTRPGFlow:
         human_player_name: str = "Player",
         debug: bool = False,
         use_llm_moderator: bool = False,
+        use_direct_companions: bool = False,
     ) -> None:
         # Speaker selection: deterministic by default (fast, consistent, no LLM
         # call). Set use_llm_moderator=True to fall back to the LLM manager agent
         # (richer subtext-reading, but slow and inconsistent on small models).
         self.use_llm_moderator = use_llm_moderator
+        # When True, companions skip the CrewAI Agent/ReAct wrapper and run as
+        # direct chat completions (faster, no discarded reasoning). A/B toggle.
+        self.use_direct_companions = use_direct_companions
         # debug=True shows engine internals (agent panels, [timing]/[audit]
         # lines); play mode keeps it False so only the story is printed.
         self.debug = debug
@@ -341,6 +345,7 @@ class TTRPGFlow:
             editor_llm=self.editor_llm,
             llm_tier_map=self.llm_tier_map,
             debug=self.debug,
+            direct_companions=self.use_direct_companions,
         )
 
         beat_call_start = time.perf_counter()

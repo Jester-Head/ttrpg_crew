@@ -23,6 +23,7 @@ class PromptBackedBeatRunner:
         llm_tier_map: dict[str, str] | None = None,
         auto_retry: bool = True,
         debug: bool = False,
+        direct_companions: bool = False,
     ):
         self.gm_agent = gm_agent
         self.companion_agents = companion_agents
@@ -36,6 +37,10 @@ class PromptBackedBeatRunner:
         self.auto_retry = auto_retry
         # debug=True prints [timing]/[audit] internals; play mode keeps it quiet.
         self.debug = debug
+        # When True, companions are generated with a direct chat completion (no
+        # CrewAI Agent/ReAct wrapper), which avoids the discarded "Thought:"
+        # preamble. The GM still runs through CrewAI. A/B toggle for now.
+        self.direct_companions = direct_companions
 
     def run_beat(
         self,
@@ -103,6 +108,9 @@ class PromptBackedBeatRunner:
             "gm_intent": gm_intent,
         }
 
+        # GM always runs through CrewAI for now (keeps its search-tool option at
+        # the large tier). Companions either share that crew (default) or, when
+        # direct_companions is on, run as plain chat completions below.
         if gm_should_frame_first:
             gm_task_config = load_task_for_game_state(
                 "gm",
@@ -123,44 +131,75 @@ class PromptBackedBeatRunner:
             tasks.append(gm_task)
             agents.append(self.gm_agent)
 
-        for speaker_id in selected_speakers:
-            companion_agent = self.companion_agents[speaker_id]
-            character_vars = self.companion_prompt_vars[speaker_id]
+        if self.direct_companions:
+            # GM (if any) runs in its own crew; companions are direct calls.
+            if tasks:
+                gm_crew = Crew(
+                    agents=agents, tasks=tasks, process=Process.sequential, verbose=False
+                )
+                clock["last"] = time.perf_counter()
+                gm_crew.kickoff()
+                self._log_crew_tokens(gm_crew, timings, len(tasks))
 
-            companion_vars = {
-                **common_vars,
-                **character_vars,
-            }
+            # Feed each companion what has been said this beat (GM frame, then
+            # prior companions) so they react in context, mirroring the CrewAI
+            # path's task `context`.
+            gm_text = next((text for label, text in outputs if label == "GM"), "")
+            said: list[str] = [f"GM: {gm_text}"] if gm_text else []
+            for speaker_id in selected_speakers:
+                system, user, name = self._companion_prompt(
+                    speaker_id, common_vars, game_state_name, said
+                )
+                text, secs, prompt_tokens, completion_tokens = self._direct_companion_call(
+                    system, user
+                )
+                timings.append((speaker_id, secs))
+                outputs.append((speaker_id, text))
+                said.append(f"{name}: {text}")
+                if self.debug:
+                    tps = (completion_tokens / secs) if (completion_tokens and secs) else 0.0
+                    print(
+                        f"[direct] {speaker_id}  prompt={prompt_tokens}  "
+                        f"completion={completion_tokens}  {secs:.1f}s  {tps:.1f} tok/s"
+                    )
+        else:
+            for speaker_id in selected_speakers:
+                companion_agent = self.companion_agents[speaker_id]
+                companion_vars = {
+                    **common_vars,
+                    **self.companion_prompt_vars[speaker_id],
+                }
 
-            companion_task_config = load_task_for_game_state(
-                "companion",
-                companion_vars,
-                game_state_name,
-                tier=self.tier,
-                llm=self.llm,
-                llm_tier_map=self.llm_tier_map,
+                companion_task_config = load_task_for_game_state(
+                    "companion",
+                    companion_vars,
+                    game_state_name,
+                    tier=self.tier,
+                    llm=self.llm,
+                    llm_tier_map=self.llm_tier_map,
+                )
+
+                companion_task = Task(
+                    description=companion_task_config["description"],
+                    expected_output=companion_task_config["expected_output"],
+                    agent=companion_agent,
+                    context=tasks.copy(),
+                    callback=_timed_cb(speaker_id),
+                )
+
+                tasks.append(companion_task)
+                agents.append(companion_agent)
+
+            crew = Crew(
+                agents=agents,
+                tasks=tasks,
+                process=Process.sequential,
+                verbose=False,
             )
 
-            companion_task = Task(
-                description=companion_task_config["description"],
-                expected_output=companion_task_config["expected_output"],
-                agent=companion_agent,
-                context=tasks.copy(),
-                callback=_timed_cb(speaker_id),
-            )
-
-            tasks.append(companion_task)
-            agents.append(companion_agent)
-
-        crew = Crew(
-            agents=agents,
-            tasks=tasks,
-            process=Process.sequential,
-            verbose=False,
-        )
-
-        clock["last"] = time.perf_counter()
-        crew.kickoff()
+            clock["last"] = time.perf_counter()
+            crew.kickoff()
+            self._log_crew_tokens(crew, timings, len(tasks))
 
         if self.debug and timings:
             parts = "  ".join(f"{label}={secs:.1f}s" for label, secs in timings)
@@ -177,7 +216,9 @@ class PromptBackedBeatRunner:
         )
 
         final: list[tuple[str, str]] = []
-        for task, (label, text) in zip(tasks, outputs):
+        for label, text in outputs:
+            if self.debug:
+                print(f"[output] {label}: {text}")
             violations = audit(
                 label,
                 text,
@@ -205,6 +246,114 @@ class PromptBackedBeatRunner:
             final.append((label, text))
 
         return self._assemble_beat(final)
+
+    def _log_crew_tokens(self, crew: Crew, timings: list, task_count: int) -> None:
+        """Print this crew's token accounting (debug only).
+
+        Read the line as: completion tokens far above the words you actually see
+        means discarded reasoning (CrewAI's "Thought:" preamble); requests above
+        task_count means an agent took extra ReAct loops; low completion tok/s
+        means the model/quant/GPU is the bottleneck, not the prompt.
+        """
+        if not self.debug:
+            return
+        um = getattr(crew, "usage_metrics", None)
+        if um is None:
+            return
+        gen_secs = sum(secs for _, secs in timings) or 1e-9
+        pt = getattr(um, "prompt_tokens", 0) or 0
+        cached = getattr(um, "cached_prompt_tokens", 0) or 0
+        ct = getattr(um, "completion_tokens", 0) or 0
+        reqs = getattr(um, "successful_requests", 0) or 0
+        print(
+            f"[tokens] prompt={pt} (cached {cached})  completion={ct}  "
+            f"requests={reqs} vs tasks={task_count}  {ct / gen_secs:.1f} completion tok/s"
+        )
+
+    def _companion_prompt(
+        self,
+        speaker_id: str,
+        common_vars: dict[str, Any],
+        game_state_name: str,
+        said_so_far: list[str],
+    ) -> tuple[str, str, str]:
+        """Assemble (system, user, name) for a direct companion call.
+
+        Reuses the same persona (agent role/goal/backstory) and scene/rules
+        (companion task) as the CrewAI path, so an A/B isolates the ReAct wrapper
+        rather than the prompt content.
+        """
+        agent = self.companion_agents[speaker_id]
+        merged = {**common_vars, **self.companion_prompt_vars[speaker_id]}
+        name = str(merged.get("character_name", speaker_id))
+
+        cfg = load_task_for_game_state(
+            "companion",
+            merged,
+            game_state_name,
+            tier=self.tier,
+            llm=self.llm,
+            llm_tier_map=self.llm_tier_map,
+        )
+
+        system = "\n\n".join(
+            part
+            for part in (
+                (agent.role or "").strip(),
+                ("Your goal: " + agent.goal.strip()) if (agent.goal or "").strip() else "",
+                (agent.backstory or "").strip(),
+            )
+            if part
+        )
+
+        user_parts: list[str] = []
+        if said_so_far:
+            user_parts.append("So far this beat:\n" + "\n".join(said_so_far))
+        user_parts.append(cfg["description"].strip())
+        if (cfg.get("expected_output") or "").strip():
+            user_parts.append("Output: " + cfg["expected_output"].strip())
+        user_parts.append(
+            f"Respond with ONLY {name}'s spoken line(s) in character (or [observes]). "
+            "Do not output any analysis, reasoning, or planning — just the line."
+        )
+        return system, "\n\n".join(user_parts), name
+
+    def _direct_companion_call(self, system: str, user: str) -> tuple[str, float, Any, Any]:
+        """One companion turn as a plain chat completion — no CrewAI/ReAct wrapper.
+
+        Returns (text, seconds, prompt_tokens, completion_tokens). Token counts
+        are None when the call path can't report usage.
+        """
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        start = time.perf_counter()
+        text, prompt_tokens, completion_tokens = "", None, None
+        try:
+            import litellm
+
+            params: dict[str, Any] = {}
+            for attr in ("temperature", "top_p", "frequency_penalty", "presence_penalty", "timeout"):
+                value = getattr(self.llm, attr, None)
+                if value is not None:
+                    params[attr] = value
+            resp = litellm.completion(
+                model=getattr(self.llm, "model", None),
+                api_base=getattr(self.llm, "base_url", None),
+                api_key=getattr(self.llm, "api_key", None),
+                messages=messages,
+                **params,
+            )
+            text = (resp.choices[0].message.content or "").strip()
+            usage = getattr(resp, "usage", None)
+            prompt_tokens = getattr(usage, "prompt_tokens", None)
+            completion_tokens = getattr(usage, "completion_tokens", None)
+        except Exception as exc:  # fall back to the crewai wrapper (text only)
+            if self.debug:
+                print(f"[direct] litellm.completion failed ({exc}); using llm.call")
+            text = str(self.llm.call(messages)).strip()
+        return text, time.perf_counter() - start, prompt_tokens, completion_tokens
 
     def _edit_output(
         self, label: str, flagged_text: str, violations: list, human_player_name: str

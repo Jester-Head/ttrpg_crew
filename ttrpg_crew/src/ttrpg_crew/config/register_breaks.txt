@@ -1,0 +1,28 @@
+# Register breaks — modern/casual words and phrases that break the campaign's
+# period (gothic / grimdark) tone and read as a character stepping out of the
+# fiction (e.g. "a dozen different ways to get stabbed"). The auditor flags the
+# FIRST match in an output; one is enough. One term or short phrase per line;
+# '#' comments and blank lines are ignored. Loaded live by game/validator.py,
+# so edits apply on the next beat without a restart.
+#
+# This is a conservative SEED — it's yours to curate. Multi-word phrases match
+# whole. Be careful adding short words with innocent literal meanings
+# (e.g. "cool", "chill", "okay") or you'll get false positives like "cool night
+# air". Add register-breakers you actually see in play.
+
+a dozen different ways
+no big deal
+gonna
+wanna
+gotta
+kinda
+sorta
+freaking
+totally
+awesome
+no worries
+for real
+heads up
+chill out
+deal with it
+you guys
