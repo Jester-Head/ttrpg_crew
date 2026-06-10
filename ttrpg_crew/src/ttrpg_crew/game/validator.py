@@ -149,7 +149,8 @@ def audit_gm(
         n = re.escape(name)
         if re.search(rf"\b{n}\b[,\s]+(?:\w+\s+){{0,3}}{_COMPANION_VOICE_VERBS}\b", text, re.I) or \
            re.search(rf"\b{n}['’]s\s+(?:\w+\s+){{0,2}}{_COMPANION_BODY_NOUNS}\b", text, re.I) or \
-           re.search(rf"\b{n}\b[^.!?\n]{{0,40}}[\"“]", text):
+           re.search(rf"\b{n}\b[^.!?\n]{{0,40}}[\"“]", text) or \
+           re.search(rf"^\s*{n}\s*:", text, re.M):  # transcript-format leak ("Name: ...")
             voiced.append(name)
     if voiced:
         violations.append(

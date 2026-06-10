@@ -72,6 +72,14 @@ def detect_loaded_model(base_url: str) -> str | None:
     return None
 
 
+def _env_flag(name: str, *, default: bool) -> bool:
+    """Read an on/off env var properly: '0', 'false', 'no', 'off' disable."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip().lower() not in ("0", "false", "no", "off")
+
+
 def _build_flow() -> TTRPGFlow:
     """Resolve the local model + prompt tier and construct the flow.
 
@@ -144,9 +152,11 @@ def _build_flow() -> TTRPGFlow:
     # Set TTRPG_LLM_MODERATOR=1 to use the LLM manager agent instead.
     use_llm_moderator = bool(os.getenv("TTRPG_LLM_MODERATOR"))
 
-    # Set TTRPG_DIRECT_COMPANIONS=1 to generate companions as direct chat
-    # completions (no CrewAI ReAct preamble). A/B toggle while we evaluate it.
-    use_direct_companions = bool(os.getenv("TTRPG_DIRECT_COMPANIONS"))
+    # Companions default to direct chat completions — the architecture the old
+    # AutoGen version used (no CrewAI ReAct preamble; measured ~7x fewer
+    # completion tokens). Set TTRPG_DIRECT_COMPANIONS=0 to route them back
+    # through the CrewAI agent loop. The GM stays on CrewAI either way.
+    use_direct_companions = _env_flag("TTRPG_DIRECT_COMPANIONS", default=True)
 
     if debug:
         print(f"[ttrpg] direct_companions={use_direct_companions}")

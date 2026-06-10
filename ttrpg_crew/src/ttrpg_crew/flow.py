@@ -25,6 +25,7 @@ from pydantic import ValidationError
 
 from ttrpg_crew.game.intent import classify_intent
 from ttrpg_crew.game.schemas import ModeratorSelection
+from ttrpg_crew.game.stance import assign_stance, stance_directive
 from ttrpg_crew.game.speaker_policy import (
     calculate_soft_speaker_weights,
     select_speakers,
@@ -370,6 +371,16 @@ class TTRPGFlow:
             available_speakers=list(self.character_profiles.keys()),
         )
 
+        # Each selected companion's stance toward the player's approach (the old
+        # AutoGen BanterGenerator, deterministic): the engine picks the move,
+        # the model performs it. Empty string = no stance this beat.
+        stance_hints = {
+            sid: stance_directive(
+                assign_stance(self.character_profiles.get(sid, {}), player_input)
+            )
+            for sid in selection.selected_speakers
+        }
+
         beat_call_start = time.perf_counter()
         result = runner.run_beat(
             game_state_name=self.game_state.scene_type,
@@ -390,6 +401,7 @@ class TTRPGFlow:
             gm_intent=selection.gm_intent,
             gm_should_frame_first=selection.gm_should_frame_first,
             beat_intent=beat_intent,
+            stance_hints=stance_hints,
         )
         beat_secs = time.perf_counter() - beat_call_start
 

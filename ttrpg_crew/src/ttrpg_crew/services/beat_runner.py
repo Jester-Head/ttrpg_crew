@@ -66,7 +66,9 @@ class PromptBackedBeatRunner:
         gm_intent: str,
         gm_should_frame_first: bool = True,
         beat_intent: BeatIntent | None = None,
+        stance_hints: dict[str, str] | None = None,
     ):
+        stance_hints = stance_hints or {}
         tasks: list[Task] = []
         agents: list[Agent] = []
 
@@ -154,9 +156,11 @@ class PromptBackedBeatRunner:
             for speaker_id in selected_speakers:
                 speaker_vars = {
                     **common_vars,
+                    "party_members": self._party_for(speaker_id, human_player_name),
                     "beat_directives": self._beat_directives(
                         speaker_id, beat_intent, selected_speakers, companion_said,
                         player_input=player_input,
+                        stance_hint=stance_hints.get(speaker_id, ""),
                     ),
                 }
                 system, user, name = self._companion_prompt(
@@ -180,12 +184,14 @@ class PromptBackedBeatRunner:
                 companion_vars = {
                     **common_vars,
                     **self.companion_prompt_vars[speaker_id],
+                    "party_members": self._party_for(speaker_id, human_player_name),
                     # Tasks are built before any output exists, so this carries
                     # intent + who else speaks + anti-echo (no said-lines yet;
                     # those arrive at runtime via the task context).
                     "beat_directives": self._beat_directives(
                         speaker_id, beat_intent, selected_speakers,
                         player_input=player_input,
+                        stance_hint=stance_hints.get(speaker_id, ""),
                     ),
                 }
 
@@ -299,6 +305,17 @@ class PromptBackedBeatRunner:
             f"requests={reqs} vs tasks={task_count}  {ct / gen_secs:.1f} completion tok/s"
         )
 
+    def _party_for(self, speaker_id: str, human_player_name: str) -> str:
+        """The party roster from this companion's seat: the human + the OTHER
+        companions. Excluding themselves stops third-person self-references
+        (ported from the old version, which did the same)."""
+        others = [
+            str(v.get("character_name", sid))
+            for sid, v in self.companion_prompt_vars.items()
+            if sid != speaker_id
+        ]
+        return ", ".join([human_player_name] + others)
+
     def _beat_directives(
         self,
         speaker_id: str,
@@ -306,6 +323,7 @@ class PromptBackedBeatRunner:
         selected_speakers: list[str],
         said_lines: list[str] | None = None,
         player_input: str = "",
+        stance_hint: str = "",
     ) -> str:
         """A code-built THIS BEAT block telling one companion what the moment is.
 
@@ -335,6 +353,9 @@ class PromptBackedBeatRunner:
                 lines.append("- The player took an action; react to it, don't narrate it.")
             if intent.situations:
                 lines.append(f"- Situation: {', '.join(intent.situations)}.")
+
+        if stance_hint:
+            lines.append(stance_hint)
 
         others = [
             str(self.companion_prompt_vars.get(sid, {}).get("character_name", sid))
