@@ -22,6 +22,16 @@ _debug = None
 _clean_path: Optional[Path] = None
 _debug_path: Optional[Path] = None
 _beat_n = 0
+_meta: dict[str, str] = {}
+
+
+def set_meta(**fields: str) -> None:
+    """Record run metadata (model, tier, ...) for the log headers.
+
+    Call before the first beat (main.py does, right after model detection) so
+    the lines land in the header when the files are lazily created.
+    """
+    _meta.update({k: str(v) for k, v in fields.items()})
 
 
 def _ensure_open() -> None:
@@ -42,8 +52,13 @@ def _ensure_open() -> None:
         _debug_path = logs_dir / f"session_{stamp}.debug.log"
         _clean = _clean_path.open("a", encoding="utf-8")
         _debug = _debug_path.open("a", encoding="utf-8")
-        _clean.write(f"# Session {datetime.now():%Y-%m-%d %H:%M:%S}\n")
+        header = f"# Session {datetime.now():%Y-%m-%d %H:%M:%S}\n"
+        if _meta:
+            header += "".join(f"- {key}: {value}\n" for key, value in _meta.items())
+        _clean.write(header)
         _clean.flush()
+        _debug.write(header)
+        _debug.flush()
         print(f"[log] transcript -> {_clean_path}")
     except Exception:
         _clean = None

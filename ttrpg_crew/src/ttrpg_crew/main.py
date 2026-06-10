@@ -25,6 +25,7 @@ for _stream in (sys.stdout, sys.stderr):
 from crewai import LLM
 from dotenv import load_dotenv
 
+from ttrpg_crew import session_log
 from ttrpg_crew.config_loader import config_section
 from ttrpg_crew.flow import TTRPGFlow
 from ttrpg_crew.prompts.prompt_loader import resolve_tier_for_model
@@ -160,6 +161,16 @@ def _build_flow() -> TTRPGFlow:
 
     if debug:
         print(f"[ttrpg] direct_companions={use_direct_companions}")
+
+    # Stamp run metadata into the session log headers so each transcript says
+    # which model/settings produced it (essential when comparing models).
+    session_log.set_meta(
+        model=model_id,
+        tier=tier,
+        manager_model=manager_model_id or model_id,
+        editor_model=editor_model_id or model_id,
+        direct_companions=use_direct_companions,
+    )
 
     return TTRPGFlow(
         llm=llm,
