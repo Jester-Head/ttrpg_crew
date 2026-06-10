@@ -169,26 +169,13 @@ def sample_name_pool(per_ancestry: int | None = None) -> str:
     return "; ".join(groups)
 
 
-def _palette_entry(raw: Any) -> dict[str, Any] | None:
-    """Normalize a palette entry (bare word or mapping) to {word, means, ai_favored}."""
-    if isinstance(raw, dict) and str(raw.get("word", "")).strip():
-        return {
-            "word": str(raw["word"]).strip(),
-            "means": str(raw.get("means", "")).strip(),
-            "ai_favored": bool(raw.get("ai_favored", False)),
-        }
-    if isinstance(raw, str) and raw.strip():
-        return {"word": raw.strip(), "means": "", "ai_favored": False}
-    return None
-
-
 def sample_style_cues(per_category: int | None = None) -> str:
-    """A fresh per-beat sample of the gothic register (config/style_palette.yaml).
+    """A fresh per-beat sample of register cues (config/style_palette.yaml).
 
-    Injected into the GM prompt as a tone cue — a palette to reach for, not a
-    checklist. Prefers the distinctive gems over AI-favored words, and surfaces
-    each word's meaning so the GM can use the word OR render its sense. Returns
-    '' if no palette is configured.
+    The palette is groups of interchangeable words/short phrases (synonyms),
+    NOT rare words with definitions. Each beat we sample a few groups and offer
+    their options ("a / b / c") so the GM has natural phrasings to reach for.
+    Returns '' when the palette is empty, so the GM just writes plainly.
     """
     if per_category is None:
         per_category = _sampling_count("style_cues_per_category", 2)
@@ -202,20 +189,20 @@ def sample_style_cues(per_category: int | None = None) -> str:
     if not isinstance(data, dict):
         return ""
 
-    picks: list[str] = []
-    for words in data.values():
-        if not isinstance(words, list):
-            continue
-        entries = [e for e in (_palette_entry(w) for w in words) if e]
-        if not entries:
-            continue
-        # Push the distinctive gems; fall back to favored only if that's all there is.
-        pool = [e for e in entries if not e["ai_favored"]] or entries
-        for entry in random.sample(pool, min(per_category, len(pool))):
-            picks.append(f"{entry['word']} ({entry['means']})" if entry["means"] else entry["word"])
+    # Each group is a list of synonyms/phrases, or a single bare phrase.
+    groups: list[list[str]] = []
+    for group in data.get("phrases") or []:
+        if isinstance(group, list):
+            options = [str(x).strip() for x in group if str(x).strip()]
+            if options:
+                groups.append(options)
+        elif isinstance(group, str) and group.strip():
+            groups.append([group.strip()])
 
-    random.shuffle(picks)
-    return "; ".join(picks)
+    if not groups:
+        return ""
+    sample = random.sample(groups, min(per_category, len(groups)))
+    return "; ".join(" / ".join(options) for options in sample)
 
 
 def load_campaign_frame() -> dict[str, Any]:

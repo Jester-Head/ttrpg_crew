@@ -74,12 +74,27 @@ def _selection_meta(profile: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _detect_situations(text: str) -> set[str]:
+def detect_situations(text: str) -> set[str]:
+    """Which situation tags (combat/social/...) the text implies. Shared with intent.py."""
     return {
         situation
         for situation, keywords in _SITUATION_KEYWORDS.items()
         if any(kw in text for kw in keywords)
     }
+
+
+def find_direct_address(
+    character_profiles: dict[str, dict[str, Any]],
+    available_speakers: list[str],
+    player_lower: str,
+) -> tuple[str, str] | None:
+    """(speaker_id, display_name) of the companion the player named, if any."""
+    for cid in available_speakers:
+        name = str(character_profiles.get(cid, {}).get("name") or cid)
+        first = name.split()[0].lower()
+        if first and re.search(rf"\b{re.escape(first)}\b", player_lower):
+            return cid, name
+    return None
 
 
 def _score_companion(
@@ -134,15 +149,14 @@ def select_speakers(
     player_lower = player_input.lower()
 
     # Direct address — the player named a companion (by first name).
-    for cid in available_speakers:
-        name = str(character_profiles.get(cid, {}).get("name") or cid)
-        first = name.split()[0].lower()
-        if first and re.search(rf"\b{re.escape(first)}\b", player_lower):
-            return ModeratorSelection(
-                selected_speakers=[cid],
-                gm_should_frame_first=False,
-                gm_intent=f"{name} answers the player directly.",
-            )
+    addressed = find_direct_address(character_profiles, available_speakers, player_lower)
+    if addressed:
+        cid, name = addressed
+        return ModeratorSelection(
+            selected_speakers=[cid],
+            gm_should_frame_first=False,
+            gm_intent=f"{name} answers the player directly.",
+        )
 
     cfg = _selection_config()
     weights = cfg["weights"]
@@ -150,7 +164,7 @@ def select_speakers(
 
     # Weight the player's current action heavily; trail off into recent story.
     text = f"{player_lower}\n{recent_story[-600:].lower()}"
-    situations = _detect_situations(text)
+    situations = detect_situations(text)
 
     scored: list[tuple[str, float]] = []
     for cid in available_speakers:

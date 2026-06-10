@@ -35,11 +35,12 @@ _defaults:
       lingers — over genre texture and stacked adjectives.
     - Plain, active verbs. Vary sentence length. No more than one ornate image
       per beat.
-    - Register: gothic / grimdark. Where a vivid word genuinely fits, reach for
-      this palette: {{ style_cues }}. You may use the word itself OR render its
-      meaning in plain language (a "dirge" can simply be "a slow, sorrowful song
-      of mourning") — the meaning is often the better, less show-offy choice.
-      Only when it earns its place; never force a word or stack adjectives.
+    - Register: gothic / grimdark, but PLAIN and concrete. The mood comes from
+      what happens and what's at stake, not from ornate words. Choose the exact,
+      everyday word over a fancy one. Do NOT stack adjectives or pile on
+      metaphors (no "dirge-like scent", no "stygian, caliginous gloom"); at most
+      one vivid image per beat.
+      {% if style_cues %}Natural phrasings you may reach for where they fit (never forced): {{ style_cues }}.{% endif %}
 
     Spotlight:
     - Never narrate what the human player does — only how the world reacts.
@@ -83,6 +84,13 @@ _defaults:
 narrative:
   description: >
     Run the next story beat of the session.
+
+    {% if recent_story %}
+    The story so far (this already happened — stay consistent with ALL of it:
+    who is present, what was said and done, every established fact. Continue
+    from the last line; never re-introduce the scene or contradict it):
+    {{ recent_story }}
+    {% endif %}
 
     Scene context:
     {{ scene_context }}
@@ -151,6 +159,11 @@ combat:
   description: >
     Run the next combat beat. Keep pacing tight.
 
+    {% if recent_story %}
+    The story so far (stay consistent with it; continue, don't re-set the scene):
+    {{ recent_story }}
+    {% endif %}
+
     Combat context:
     {{ scene_context }}
 
@@ -198,8 +211,9 @@ model_tiers:
         not voice them or describe their reactions, gazes, or body language.{% endif %}
         Naming: name NEW NPCs from this list (fit the ancestry); never invent
         generic names. Names — {{ name_pool }}
-        Register: gothic / grimdark. Reach for vivid decay-soaked words where
-        they fit (e.g. {{ style_cues }}); never force them or stack adjectives.
+        Register: gothic / grimdark, but PLAIN and concrete — no stacked
+        adjectives or ornate metaphors (no "dirge-like scent"); at most one vivid
+        image per beat.{% if style_cues %} Phrasings you may use where they fit: {{ style_cues }}.{% endif %}
       expected_output: >
         2-5 sentences, then "What do you do?" Lead with people and stakes, not
         scenery; at most one or two sensory details. No player puppeteering.
@@ -207,11 +221,16 @@ model_tiers:
     narrative:
       description: >
         Next beat. Party: {{ party_members }}. Context: {{ scene_context }}.
+        {% if recent_story %}Story so far (already happened — continue from the
+        last line, stay consistent with every name, fact, and position in it;
+        never re-introduce the scene): {{ recent_story }}{% endif %}
         Player: {{ player_input }}. 2d12 Hope/Fear; stakes before rolls; fail forward.
 
     combat:
       description: >
         Combat beat. Context: {{ scene_context }}. Player: {{ player_input }}.
+        {% if recent_story %}Story so far (stay consistent; don't re-set the
+        scene): {{ recent_story }}{% endif %}
         Tight pacing. Stakes + DC before rolls. [COMBAT: key] only when fight starts.
 
     opening_scene:
@@ -239,7 +258,7 @@ model_tiers:
         {% if companions_speaking %}{{ companions_speaking }} speak for themselves
         after you — frame only the world; don't voice or describe them.{% endif %}
         Name NEW NPCs from this list, never generic names: {{ name_pool }}
-        Gothic register; reach for words like {{ style_cues }} where they fit.
+        Gothic but PLAIN: concrete words, no stacked adjectives or fancy metaphors.{% if style_cues %} You may use: {{ style_cues }}.{% endif %}
       expected_output: >
         2-5 sentences, then "What do you do?" People and stakes first, scenery
         last.
@@ -247,11 +266,14 @@ model_tiers:
     narrative:
       description: >
         GM beat. Player: {{ player_input }}. Scene: {{ scene_context }}.
+        {% if recent_story %}Story so far (continue it, stay consistent, never
+        restart the scene): {{ recent_story }}{% endif %}
         Party: {{ party_members }}. Fail forward. Never narrate the player.
 
     combat:
       description: >
         Combat. Player: {{ player_input }}. Scene: {{ scene_context }}.
+        {% if recent_story %}So far: {{ recent_story }}{% endif %}
         Fast pacing. Stakes before rolls. [COMBAT: enemy] only when fight starts.
 
     opening_scene:

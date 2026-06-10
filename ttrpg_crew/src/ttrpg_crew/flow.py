@@ -23,6 +23,7 @@ from typing import Any
 from crewai import Crew, Process, Task
 from pydantic import ValidationError
 
+from ttrpg_crew.game.intent import classify_intent
 from ttrpg_crew.game.schemas import ModeratorSelection
 from ttrpg_crew.game.speaker_policy import (
     calculate_soft_speaker_weights,
@@ -144,6 +145,16 @@ class TTRPGFlow:
             scene_type="opening",
         )
 
+    @staticmethod
+    def _recent_story_chars() -> int:
+        """Cap on the story-so-far injected each beat (models.yaml context:)."""
+        from ttrpg_crew.config_loader import config_section
+
+        try:
+            return int(config_section("context").get("recent_story_chars", 4000))
+        except (TypeError, ValueError):
+            return 4000
+
     def _common_vars(self, *, player_input: str = "") -> dict[str, Any]:
         gs = self.game_state
         return {
@@ -155,7 +166,10 @@ class TTRPGFlow:
             "name_pool": sample_name_pool(),
             "style_cues": sample_style_cues(),
             "scene_context": gs.location,
-            "recent_story": self.transcript.visible_text(),
+            # The story so far — the continuity the GM and companions write
+            # against. Tail-capped (models.yaml context:) so long sessions
+            # don't blow the model's window; newest beats always survive.
+            "recent_story": self.transcript.tail(self._recent_story_chars()),
             "player_input": player_input,
             # campaign_notes carries auto-retrieved lore for tool-less tiers.
             "campaign_notes": self._grounding_lore(player_input=player_input),
@@ -348,6 +362,14 @@ class TTRPGFlow:
             direct_companions=self.use_direct_companions,
         )
 
+        # What the player's input MEANS, computed in code (no LLM call) and told
+        # to the agents outright, so small models don't have to infer it.
+        beat_intent = classify_intent(
+            player_input=player_input,
+            character_profiles=self.character_profiles,
+            available_speakers=list(self.character_profiles.keys()),
+        )
+
         beat_call_start = time.perf_counter()
         result = runner.run_beat(
             game_state_name=self.game_state.scene_type,
@@ -367,6 +389,7 @@ class TTRPGFlow:
             selected_speakers=selection.selected_speakers,
             gm_intent=selection.gm_intent,
             gm_should_frame_first=selection.gm_should_frame_first,
+            beat_intent=beat_intent,
         )
         beat_secs = time.perf_counter() - beat_call_start
 

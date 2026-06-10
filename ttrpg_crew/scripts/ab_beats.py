@@ -32,12 +32,15 @@ from dotenv import load_dotenv
 
 # A fixed beat list chosen to exercise: a GM-only opening, a player action that
 # should pull in companions, a direct address to a named companion, and a
-# higher-tension action. Edit freely — just keep it identical across runs.
+# higher-tension action. Inputs are deliberately fiction-agnostic (no assumed
+# NPCs or staging) because each run's opening differs — a canned input that
+# contradicts the live fiction confuses the GM. Edit freely; keep it identical
+# across the runs you're comparing.
 SCENARIO = [
     "",  # opening: GM frames the scene, player has not acted yet
     "I take the vial and ask what the Conclave will want in return.",
     "I ask Mireille whether the canals are safe to move through tonight.",
-    "I step between Sharon and the Clade scout and tell him to back off.",
+    "I refuse, hand the vial back, and turn to leave.",
 ]
 
 

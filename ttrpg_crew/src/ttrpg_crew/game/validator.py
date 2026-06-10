@@ -22,22 +22,24 @@ from ttrpg_crew.config_loader import config_section
 _CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
 
 # Auditor strictness — defaults here, overridable live via models.yaml `audit:`.
+# Each override is cast to its default's type (int thresholds, float ratios).
 _DEFAULT_AUDIT = {
     "companion_bloat_words": 35,
     "em_dash_max": 3,
     "cluster_min": 2,
     "density_min": 3,
+    "duplicate_similarity": 0.8,
 }
 
 
-def _audit_cfg() -> dict[str, int]:
+def _audit_cfg() -> dict:
     """Resolve audit thresholds from models.yaml, with code defaults."""
     cfg = config_section("audit")
     out = dict(_DEFAULT_AUDIT)
-    for key in out:
+    for key, default in out.items():
         if key in cfg:
             try:
-                out[key] = int(cfg[key])
+                out[key] = type(default)(cfg[key])
             except (TypeError, ValueError):
                 pass
     return out
@@ -120,7 +122,7 @@ _COMPANION_VOICE_VERBS = (
     r"sighs?|hisses?|snaps?|calls?|shouts?|leans?|nods?|grins?|smiles?|"
     r"warns?|offers?|insists?|scoffs?|watches?|shifts?|considers?|studies?|"
     r"glances?|darts?|hardens?|tenses?|stiffens?|frowns?|winces?|tilts?|"
-    r"regards?|flinches?|bristles?|eyes)"
+    r"regards?|flinches?|bristles?|perch(?:es|ed)?|readies|eyes)"
 )
 # GM describing a companion's body/expression ("Mireille's hand trembles").
 _COMPANION_BODY_NOUNS = (
@@ -145,7 +147,7 @@ def audit_gm(
         if not name:
             continue
         n = re.escape(name)
-        if re.search(rf"\b{n}\b\s+(?:\w+\s+){{0,3}}{_COMPANION_VOICE_VERBS}\b", text, re.I) or \
+        if re.search(rf"\b{n}\b[,\s]+(?:\w+\s+){{0,3}}{_COMPANION_VOICE_VERBS}\b", text, re.I) or \
            re.search(rf"\b{n}['’]s\s+(?:\w+\s+){{0,2}}{_COMPANION_BODY_NOUNS}\b", text, re.I) or \
            re.search(rf"\b{n}\b[^.!?\n]{{0,40}}[\"“]", text):
             voiced.append(name)
@@ -419,6 +421,38 @@ def audit_style(text: str) -> list[Violation]:
             )
 
     return violations
+
+
+def duplicate_companion_line(text: str, prior_lines: list[str]) -> Violation | None:
+    """Flag a companion line that echoes another companion's line this beat.
+
+    Small models imitate preceding output instead of differentiating, producing
+    two near-identical lines. Compared on lowercase words with bracketed stage
+    directions stripped; threshold from models.yaml audit.duplicate_similarity.
+    """
+    from difflib import SequenceMatcher
+
+    def _norm(s: str) -> str:
+        s = re.sub(r"\[[^\]]*\]", " ", s)  # drop [stage directions]
+        return " ".join(s.lower().split())
+
+    threshold = _audit_cfg()["duplicate_similarity"]
+    mine = _norm(text)
+    if not mine:
+        return None
+    for prior in prior_lines:
+        other = _norm(prior)
+        if other and SequenceMatcher(None, mine, other).ratio() >= threshold:
+            return Violation(
+                "duplicate_companion_line",
+                f"echoes another companion's line: {prior[:60]!r}",
+                suggestion=(
+                    "say something different, in this character's OWN voice and "
+                    "manner — react to the same moment from their angle, or stay "
+                    "silent with [observes]"
+                ),
+            )
+    return None
 
 
 def audit(

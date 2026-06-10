@@ -34,6 +34,24 @@ class Transcript:
                 lines.append(f"{entry.speaker}: {entry.message}")
         return "\n".join(lines)
 
+    def tail(self, max_chars: int) -> str:
+        """The most recent visible transcript, capped at max_chars.
+
+        Keeps whole entries (newest backwards) so the cut never lands
+        mid-sentence; the newest entries always survive.
+        """
+        lines: list[str] = []
+        used = 0
+        for entry in reversed(self.entries):
+            if entry.kind != "visible":
+                continue
+            line = f"{entry.speaker}: {entry.message}"
+            if used + len(line) > max_chars and lines:
+                break
+            lines.append(line)
+            used += len(line) + 1
+        return "\n".join(reversed(lines))
+
     def full_text(self) -> str:
         return "\n".join(
             f"[{entry.kind}] {entry.speaker}: {entry.message}"

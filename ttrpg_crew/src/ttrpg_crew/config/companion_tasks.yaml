@@ -27,6 +27,9 @@ _defaults:
     unless the GM explicitly asks you to reference your current state.
 
     Stay in character. No meta-commentary.
+    {% if beat_directives %}
+    {{ beat_directives }}
+    {% endif %}
 
   expected_output: >
     1-2 short sentences of what {{ character_name }} SAYS aloud, in their voice —
@@ -114,11 +117,16 @@ model_tiers:
         How you sound (match this shape, never copy verbatim):
         {% for ex in examples %}{{ ex }}
         {% endfor %}{% endif %}
+        {% if beat_directives %}
+        {{ beat_directives }}
+        {% endif %}
     narrative:
       description: >
         As {{ character_name }}: say ONE short spoken line reacting to the scene
         ({{ scene_context }}) — actual dialogue, not a description of your own
         movements or voice. React only; no plot-driving. [observes] if nothing to add.
+        {% if recent_story %}Recent story (react to what is actually happening
+        in it): {{ recent_story }}{% endif %}
 
     combat:
       description: >
@@ -140,6 +148,7 @@ model_tiers:
         mechanics. Only address party members. Stay in character. Say your
         actual line; do not narrate your own movements, tone, or expression.
         {% if examples %}You sound like: {% for ex in examples %}{{ ex }} {% endfor %}{% endif %}
+        {% if beat_directives %}{{ beat_directives }}{% endif %}
       expected_output: >
         1-2 spoken sentences as {{ character_name }} (real dialogue, not
         self-description), or [observes].
@@ -148,6 +157,7 @@ model_tiers:
       description: >
         Scene: {{ scene_context }}. As {{ character_name }}: say ONE short spoken
         line (real dialogue, no self-narration), or [observes].
+        {% if recent_story %}Happening now: {{ recent_story }}{% endif %}
 
     combat:
       description: >

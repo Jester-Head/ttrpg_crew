@@ -20,6 +20,7 @@ tier_selection:
     # "substring in model id (lowercased)": tier
     # e.g. "llama-3.1-70b": large
     # e.g. "qwen2.5-7b": medium   # override if a 7B punches above its weight
+    nemo: medium       # "nemo" carries no param count in its id; it's a 12B -> medium
   size_tiers:
     # "max billions of params": tier — first threshold the model fits under.
     8: small
@@ -77,8 +78,13 @@ audit:
   em_dash_max: 3             # flag at this many em-dashes in one output
   cluster_min: 2             # flag this many distinct tier-2 cliche words
   density_min: 3             # flag this many tier-3 vague-intensifier words
+  duplicate_similarity: 0.8  # 0-1; companion lines this similar count as echoes
 
 # Per-beat injection counts (services/knowledge.py). Read live.
 sampling:
   names_per_ancestry: 2      # NPC names sampled per ancestry into the GM prompt
   style_cues_per_category: 2 # gothic-palette words sampled per category
+
+# Per-beat context injection (flow.py). Read live.
+context:
+  recent_story_chars: 4000   # max chars of story-so-far given to GM/companions
