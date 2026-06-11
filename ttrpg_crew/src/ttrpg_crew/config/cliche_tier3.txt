@@ -1,0 +1,19 @@
+# Tier 3 AI words — common, only a problem when the text is saturated with them.
+# The auditor flags only when THREE OR MORE appear in one output (vague praise
+# instead of specifics). One word, lowercase, per line. '#' comments ignored.
+# Loaded live by game/validator.py.
+
+significant
+significantly
+innovative
+innovation
+effective
+effectively
+dynamic
+scalable
+compelling
+unprecedented
+exceptional
+remarkable
+sophisticated
+instrumental

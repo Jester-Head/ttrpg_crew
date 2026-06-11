@@ -1,0 +1,6 @@
+.env
+.knowledge_store/
+__pycache__/
+*.pyc
+.embak/
+logs/

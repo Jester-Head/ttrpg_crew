@@ -1,0 +1,37 @@
+# Maps runtime game_state values to task keys in gm_tasks.yaml / companion_tasks.yaml
+# in this directory. Loaded by prompt_loader.py.
+
+default_task: narrative
+
+gm:
+  opening: opening_scene
+  opening_scene: opening_scene
+  session_start: opening_scene
+  session_resume: session_resume
+  recap: session_resume
+  combat: combat
+  narrative: narrative
+  exploration: narrative
+  social: narrative
+
+companion:
+  opening: opening_scene
+  opening_scene: opening_scene
+  session_start: opening_scene
+  session_resume: session_resume
+  recap: session_resume
+  combat: combat
+  narrative: narrative
+  exploration: narrative
+  social: narrative
+
+manager:
+  opening: opening_scene
+  opening_scene: opening_scene
+  session_start: opening_scene
+  session_resume: session_resume
+  recap: session_resume
+  combat: combat
+  narrative: narrative
+  exploration: narrative
+  social: narrative

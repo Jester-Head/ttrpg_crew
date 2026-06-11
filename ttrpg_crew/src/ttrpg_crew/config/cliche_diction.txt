@@ -1,0 +1,41 @@
+# Formulaic AI phrasing the auditor rejects in generated narration.
+# One word or phrase per line; matched whole-word, case-insensitive.
+# Lines starting with # are ignored.
+#
+# Keep these to clear AI TELLS, not atmosphere — this is a gothic game and its
+# prose is allowed to be lush. Do NOT add gothic vocabulary here (shroud,
+# ethereal, labyrinthine, etc.); that belongs in config/style_palette.yaml.
+# (Loaded live by game/validator.py; changes apply on the next beat, no restart.)
+
+tapestry
+tapestries
+myriad
+delve
+delves
+delved
+delving
+testament to
+a symphony of
+a cacophony of
+a kaleidoscope of
+a dance of
+a mosaic of
+a patchwork of
+# Corporate / blog tells — jarring in gothic fiction, so always flag.
+utilize
+robust
+comprehensive
+cutting-edge
+seamless
+showcasing
+actionable
+impactful
+learnings
+synergy
+holistic
+game-changer
+game-changing
+deep dive
+in order to
+due to the fact that
+at its core

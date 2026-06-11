@@ -1,0 +1,90 @@
+# Model tier used by prompt_loader.py when selecting agent/task prompt variants.
+# A tier is how much instruction detail a model gets — larger, more capable
+# models get the richer "large" prompts; small local models get terse, strict
+# ones they can actually follow.
+default_tier: large
+
+tiers:
+  large:
+    description: Full prompts; nuanced constraints and implicit rules.
+  medium:
+    description: Condensed prompts; explicit bullet rules.
+  small:
+    description: Minimal prompts; strict output format and bullet rules.
+
+# How prompt_loader.resolve_tier_for_model() picks a tier from the loaded model.
+# Order: an `overrides` substring match wins; otherwise the parameter count is
+# parsed from the model id and bucketed by `size_tiers`; otherwise default_tier.
+tier_selection:
+  overrides:
+    # "substring in model id (lowercased)": tier
+    # e.g. "llama-3.1-70b": large
+    # e.g. "qwen2.5-7b": medium   # override if a 7B punches above its weight
+    nemo: medium       # "nemo" carries no param count in its id; it's a 12B -> medium
+  size_tiers:
+    # "max billions of params": tier — first threshold the model fits under.
+    8: small
+    30: medium
+    9999: large
+
+# Knowledge-base retrieval knobs (services/knowledge.py). Changing sources or
+# chunking requires deleting .knowledge_store/ to force a re-index.
+retrieval:
+  collection: ttrpg_knowledge
+  sources:                 # which corpora get embedded for GM lookups
+    - "lore/*.md"
+    - "rules/srd/*.md"
+  chunk_chars: 1000        # target characters per chunk
+  chunk_overlap: 150       # overlap carried between chunks
+  top_k: 5                 # how many chunks a GM lookup returns
+
+# LLM sampling knobs. main.py builds one LLM per role from these. `defaults`
+# apply to the GM and companion narration model; `manager` and `editor` override
+# per role (and apply even when they share the GM's model — sampling params are
+# per-request, so no model swap). Omit a value to fall back to the provider
+# default. Read once at startup (sampling can't change mid-session anyway).
+#
+# WARNING: do NOT set `max_tokens` here. Through CrewAI's agent loop against an
+# OpenAI-compatible local server (e.g. LM Studio), setting max_tokens at ANY
+# value makes the response come back empty — "Invalid response from LLM call -
+# None or empty" — and the beat fails. It is fine on a raw LLM call, just not
+# through the agent path (verified). Use `timeout` as the runaway guard instead.
+llm:
+  defaults:
+    temperature: 0.8        # narration: some variety/voice
+    top_p: 0.95
+    frequency_penalty: 0.05  # gentle anti-repetition; curbs "slop" (try 0.05-0.07)
+    timeout: 300            # seconds per call — guard against a hung generation
+  manager:                 # speaker-selection moderator (only if TTRPG_LLM_MODERATOR=1)
+    temperature: 0.2       # near-deterministic; it only emits a selection
+  editor:                  # AI-ism rewrite pass — keep it faithful, low-variance
+    temperature: 0.3
+
+# Deterministic speaker selection (game/speaker_policy.py): how often and how
+# many companions chime in. Read live, so edits apply on the next beat.
+speaker_selection:
+  weights:
+    talkativeness: 0.30    # base propensity to speak
+    expertise: 0.40        # the scene matches what this companion cares about
+    trigger: 0.30          # a keyword they react to appears in the beat
+    silence: 0.20          # boost a companion who has been quiet
+  recent_penalty: 0.30     # damp a companion who just spoke
+  select_threshold: 0.45   # minimum score to be selected
+  max_speakers: 2          # hard cap on companions per beat
+
+# Auditor strictness (game/validator.py). Higher = more permissive. Read live.
+audit:
+  companion_bloat_words: 35  # self-narration longer than this, with no dialogue
+  em_dash_max: 3             # flag at this many em-dashes in one output
+  cluster_min: 2             # flag this many distinct tier-2 cliche words
+  density_min: 3             # flag this many tier-3 vague-intensifier words
+  duplicate_similarity: 0.8  # 0-1; companion lines this similar count as echoes
+
+# Per-beat injection counts (services/knowledge.py). Read live.
+sampling:
+  names_per_ancestry: 2      # NPC names sampled per ancestry into the GM prompt
+  style_cues_per_category: 2 # gothic-palette words sampled per category
+
+# Per-beat context injection (flow.py). Read live.
+context:
+  recent_story_chars: 4000   # max chars of story-so-far given to GM/companions
