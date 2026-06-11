@@ -85,8 +85,15 @@ _GM_PUPPET_POSS_RE = re.compile(
     r"conscience|soul|guilt|fear|dread)\b",
     re.I,
 )
-# Closing "what do you do?" is allowed; don't let it trip the verb rule.
-_PROMPT_RE = re.compile(r"what\s+do\s+you\s+do\s*\??", re.I)
+# The GM's hand-back-to-player prompt, in its common variants. Shared single
+# source: the GM may close with it (and the assembler moves it last); a
+# companion emitting it is narrator leakage.
+CLOSING_PROMPT_WORDS = (
+    r"(?:what\s+(?:do|will)\s+you\s+do|what\s+do\s+you\s+say"
+    r"|how\s+do\s+you\s+respond|what'?s\s+your\s+(?:move|next\s+move))"
+)
+# Closing "what do you do?" is allowed for the GM; don't trip the verb rule.
+_PROMPT_RE = re.compile(CLOSING_PROMPT_WORDS + r"\s*\??", re.I)
 
 # (A)/(B) or "A)" / "1." choice menus.
 _OPTION_RE = re.compile(r"\(\s*[A-Da-d]\s*\)|(?:^|\n)\s*[A-D1-4][.)]\s+\S", re.M)
@@ -210,12 +217,52 @@ def audit_gm(
     return violations
 
 
+def strip_companion_prompt(text: str) -> str:
+    """Remove a trailing hand-back prompt from a companion's output.
+
+    Companions sometimes echo the GM's "What do you do?" (transcript-format
+    imitation); it is never theirs to say, so the assembler strips it
+    deterministically instead of waiting for an editor pass.
+    """
+    return re.sub(
+        r'[\s"*_]*' + CLOSING_PROMPT_WORDS + r'[?!.]*["*_]*\s*$', "", text, flags=re.I
+    ).rstrip()
+
+
 def audit_companion(
     text: str,
     *,
     human_player_name: str = "Player",
+    character_name: str = "",
 ) -> list[Violation]:
     violations: list[Violation] = []
+
+    # Narrator leakage: the companion writes like the GM. Two reliable tells —
+    # referring to THEMSELVES in third person ("Mireille Vane waits at your
+    # shoulder": own name used as a sentence subject), and handing the turn
+    # back mid-text. Self-naming inside dialogue ("I'm Mireille Vane.") is fine
+    # because the name isn't followed by a verb there.
+    if character_name:
+        n = re.escape(character_name.strip())
+        if n and re.search(rf"\b{n}\b\s+\w", text):
+            violations.append(
+                Violation(
+                    "companion_narrator",
+                    f"narrates themselves in third person ('{character_name} ...')",
+                    suggestion=(
+                        "speak in first person as the character; never describe "
+                        "yourself by name or set the scene — that is the GM's job"
+                    ),
+                )
+            )
+    if _PROMPT_RE.search(text):
+        violations.append(
+            Violation(
+                "companion_narrator",
+                "hands the turn back to the player (GM behavior)",
+                suggestion="never prompt the player; say your line and stop",
+            )
+        )
 
     m = _MECH_RE.search(text)
     if m:
@@ -480,10 +527,13 @@ def audit(
     *,
     human_player_name: str = "Player",
     companions: tuple[str, ...] = (),
+    character_name: str = "",
 ) -> list[Violation]:
     """Dispatch: GM vs companion rules, plus shared AI-style checks."""
     if label == "GM":
         base = audit_gm(text, human_player_name=human_player_name, companions=companions)
     else:
-        base = audit_companion(text, human_player_name=human_player_name)
+        base = audit_companion(
+            text, human_player_name=human_player_name, character_name=character_name
+        )
     return base + audit_style(text)

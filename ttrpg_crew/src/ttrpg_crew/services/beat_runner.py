@@ -8,7 +8,12 @@ from crewai import Agent, Crew, Process, Task
 
 from ttrpg_crew import session_log
 from ttrpg_crew.game.intent import BeatIntent
-from ttrpg_crew.game.validator import audit, duplicate_companion_line
+from ttrpg_crew.game.validator import (
+    CLOSING_PROMPT_WORDS,
+    audit,
+    duplicate_companion_line,
+    strip_companion_prompt,
+)
 from ttrpg_crew.prompts.directives import directive
 from ttrpg_crew.prompts.prompt_loader import load_task_config, load_task_for_game_state
 from ttrpg_crew.services.agent_factory import build_agent
@@ -239,11 +244,20 @@ class PromptBackedBeatRunner:
         prior_companion_lines: list[str] = []
         for label, text in outputs:
             self._diag(f"[output] {label}: {text}")
+            if label != "GM":
+                # A trailing "What do you do?" is never the companion's to say
+                # (transcript-format echo); strip it before auditing.
+                text = strip_companion_prompt(text)
             violations = audit(
                 label,
                 text,
                 human_player_name=human_player_name,
                 companions=companion_names,
+                character_name=""
+                if label == "GM"
+                else str(
+                    self.companion_prompt_vars.get(label, {}).get("character_name", label)
+                ),
             )
             if label != "GM":
                 dup = duplicate_companion_line(text, prior_companion_lines)
@@ -514,14 +528,13 @@ class PromptBackedBeatRunner:
         return str(crew.kickoff()).strip()
 
     # The GM's closing hand-back-to-player line (in optional quotes/markdown),
-    # at the very end of its output. The leading wrapper only matches right
-    # after whitespace so a quote that closes the preceding dialogue isn't
-    # swallowed into the lifted prompt.
+    # at the very end of its output. Wording variants come from the validator
+    # (single source). The leading wrapper only matches right after whitespace
+    # so a quote that closes the preceding dialogue isn't swallowed.
     _CLOSING_PROMPT_RE = re.compile(
         r'(?:(?<=\s)["*_]+|^["*_]+|(?<=\s)|^)'
-        r"(?:what (?:do|will) you do|what do you say|how do you respond"
-        r"|what'?s your (?:move|next move))"
-        r'[?!.]*["*_]*\s*$',
+        + CLOSING_PROMPT_WORDS
+        + r'[?!.]*["*_]*\s*$',
         re.I,
     )
 
