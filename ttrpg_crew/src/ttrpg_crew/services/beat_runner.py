@@ -9,6 +9,7 @@ from crewai import Agent, Crew, Process, Task
 from ttrpg_crew import session_log
 from ttrpg_crew.game.intent import BeatIntent
 from ttrpg_crew.game.validator import audit, duplicate_companion_line
+from ttrpg_crew.prompts.directives import directive
 from ttrpg_crew.prompts.prompt_loader import load_task_config, load_task_for_game_state
 from ttrpg_crew.services.agent_factory import build_agent
 
@@ -23,7 +24,6 @@ class PromptBackedBeatRunner:
         tier: str | None = None,
         llm: str | None = None,
         editor_llm: Any = None,
-        llm_tier_map: dict[str, str] | None = None,
         auto_retry: bool = True,
         debug: bool = False,
         direct_companions: bool = False,
@@ -35,7 +35,6 @@ class PromptBackedBeatRunner:
         self.llm = llm
         # Model the editor pass runs on; defaults to the main narration model.
         self.editor_llm = editor_llm if editor_llm is not None else llm
-        self.llm_tier_map = llm_tier_map
         # When True, an output that trips the auditor gets one corrective rewrite.
         self.auto_retry = auto_retry
         # debug=True prints [timing]/[audit] internals; play mode keeps it quiet.
@@ -123,8 +122,6 @@ class PromptBackedBeatRunner:
                 common_vars,
                 game_state_name,
                 tier=self.tier,
-                llm=self.llm,
-                llm_tier_map=self.llm_tier_map,
             )
 
             gm_task = Task(
@@ -200,8 +197,6 @@ class PromptBackedBeatRunner:
                     companion_vars,
                     game_state_name,
                     tier=self.tier,
-                    llm=self.llm,
-                    llm_tier_map=self.llm_tier_map,
                 )
 
                 companion_task = Task(
@@ -329,30 +324,23 @@ class PromptBackedBeatRunner:
 
         Small models infer poorly from raw transcript, so the engine states it
         outright: what the player's input means (intent), who else speaks, what
-        was already said, and not to echo it. Same template for every model.
+        was already said, and not to echo it. WHICH lines fire is decided here;
+        the wording comes from config/directives.yaml (live-editable).
         """
         name = self.companion_prompt_vars.get(speaker_id, {}).get("character_name", speaker_id)
-        lines = ["THIS BEAT:"]
+        lines = [directive("header")]
         quoted = player_input.strip()
 
         if intent is not None:
             if intent.addressed_id == speaker_id:
-                what = f': "{quoted}"' if quoted else "."
-                if intent.kind == "direct_question":
-                    lines.append(
-                        f"- The player is asking YOU ({name}) a direct question{what} "
-                        "Answer THAT question, in character."
-                    )
-                else:
-                    lines.append(
-                        f"- The player is speaking directly to YOU ({name}){what} Respond to them."
-                    )
+                key = "direct_question" if intent.kind == "direct_question" else "direct_address"
+                lines.append(directive(key, name=name, player_input=quoted))
             elif intent.kind in ("question", "direct_question"):
-                lines.append("- The player asked a question; only chime in if you add something.")
+                lines.append(directive("question"))
             elif intent.kind == "action":
-                lines.append("- The player took an action; react to it, don't narrate it.")
+                lines.append(directive("action"))
             if intent.situations:
-                lines.append(f"- Situation: {', '.join(intent.situations)}.")
+                lines.append(directive("situation", situations=", ".join(intent.situations)))
 
         if stance_hint:
             lines.append(stance_hint)
@@ -363,15 +351,12 @@ class PromptBackedBeatRunner:
             if sid != speaker_id
         ]
         if others:
-            lines.append(f"- Also speaking this beat: {', '.join(others)}.")
+            lines.append(directive("also_speaking", others=", ".join(others)))
         if said_lines:
-            lines.append("- Already said this beat:")
+            lines.append(directive("already_said"))
             lines.extend(f"    {said}" for said in said_lines)
         if others or said_lines:
-            lines.append(
-                "- Do NOT repeat, echo, or paraphrase anyone else's line or mannerisms. "
-                f"Say only what {name} would say, or [observes]."
-            )
+            lines.append(directive("anti_echo", name=name))
         return "\n".join(lines) if len(lines) > 1 else ""
 
     def _companion_prompt(
@@ -396,8 +381,6 @@ class PromptBackedBeatRunner:
             merged,
             game_state_name,
             tier=self.tier,
-            llm=self.llm,
-            llm_tier_map=self.llm_tier_map,
         )
 
         system = "\n\n".join(
@@ -412,14 +395,11 @@ class PromptBackedBeatRunner:
 
         user_parts: list[str] = []
         if said_so_far:
-            user_parts.append("So far this beat:\n" + "\n".join(said_so_far))
+            user_parts.append(directive("said_so_far") + "\n" + "\n".join(said_so_far))
         user_parts.append(cfg["description"].strip())
         if (cfg.get("expected_output") or "").strip():
             user_parts.append("Output: " + cfg["expected_output"].strip())
-        user_parts.append(
-            f"Respond with ONLY {name}'s spoken line(s) in character (or [observes]). "
-            "Do not output any analysis, reasoning, or planning — just the line."
-        )
+        user_parts.append(directive("respond_now", name=name))
         return system, "\n\n".join(user_parts), name
 
     def _direct_companion_call(
@@ -512,15 +492,12 @@ class PromptBackedBeatRunner:
             editor_vars,
             tier=self.tier,
             llm=self.editor_llm,
-            llm_tier_map=self.llm_tier_map,
             verbose=self.debug,
         )
         task_config = load_task_config(
             "editor_task.yaml",
             editor_vars,
             tier=self.tier,
-            llm=self.editor_llm,
-            llm_tier_map=self.llm_tier_map,
             task_key="base",
         )
         editor_task = Task(

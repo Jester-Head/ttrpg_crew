@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
-from ttrpg_crew.config_loader import config_section
+from ttrpg_crew.config_loader import config_section, load_text_lines
 
 _CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
 
@@ -46,19 +47,12 @@ def _audit_cfg() -> dict:
 
 
 def _config_terms(filename: str) -> list[str]:
-    """Read a curated word-list file (one term per line; '#' comments ignored).
+    """A curated word-list file (one term per line; '#' comments ignored).
 
-    Loaded fresh each call so edits apply on the next beat without a restart.
+    mtime-cached via config_loader, so edits still apply on the next beat
+    without a restart but the file isn't re-read on every audit.
     """
-    path = _CONFIG_DIR / filename
-    if not path.is_file():
-        return []
-    terms = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line and not line.startswith("#"):
-            terms.append(line)
-    return terms
+    return load_text_lines(_CONFIG_DIR / filename)
 
 
 @dataclass
@@ -131,6 +125,24 @@ _COMPANION_BODY_NOUNS = (
 )
 
 
+@lru_cache(maxsize=None)
+def _companion_voice_res(name: str) -> tuple[re.Pattern, ...]:
+    """Compiled GM-voices-this-companion patterns; names are static per session."""
+    n = re.escape(name)
+    return (
+        re.compile(rf"\b{n}\b[,\s]+(?:\w+\s+){{0,3}}{_COMPANION_VOICE_VERBS}\b", re.I),
+        re.compile(rf"\b{n}['’]s\s+(?:\w+\s+){{0,2}}{_COMPANION_BODY_NOUNS}\b", re.I),
+        re.compile(rf"\b{n}\b[^.!?\n]{{0,40}}[\"“]"),
+        re.compile(rf"^\s*{n}\s*:", re.M),  # transcript-format leak ("Name: ...")
+    )
+
+
+@lru_cache(maxsize=None)
+def _player_narrate_re(human_player_name: str) -> re.Pattern:
+    """Compiled companion-narrates-the-player pattern; name is static per session."""
+    return re.compile(re.escape(human_player_name) + r"\s+" + _AGENCY_VERBS, re.I)
+
+
 def audit_gm(
     text: str,
     *,
@@ -146,11 +158,7 @@ def audit_gm(
         name = (name or "").strip()
         if not name:
             continue
-        n = re.escape(name)
-        if re.search(rf"\b{n}\b[,\s]+(?:\w+\s+){{0,3}}{_COMPANION_VOICE_VERBS}\b", text, re.I) or \
-           re.search(rf"\b{n}['’]s\s+(?:\w+\s+){{0,2}}{_COMPANION_BODY_NOUNS}\b", text, re.I) or \
-           re.search(rf"\b{n}\b[^.!?\n]{{0,40}}[\"“]", text) or \
-           re.search(rf"^\s*{n}\s*:", text, re.M):  # transcript-format leak ("Name: ...")
+        if any(pattern.search(text) for pattern in _companion_voice_res(name)):
             voiced.append(name)
     if voiced:
         violations.append(
@@ -220,8 +228,7 @@ def audit_companion(
         )
 
     # Companion narrating the human player in third person (dialogue is fine).
-    player_narrate = re.compile(re.escape(human_player_name) + r"\s+" + _AGENCY_VERBS, re.I)
-    m = player_narrate.search(text)
+    m = _player_narrate_re(human_player_name).search(text)
     if m:
         violations.append(
             Violation(
@@ -268,11 +275,22 @@ def _cliche_names() -> set[str]:
     return {t.lower() for t in _config_terms("cliche_names.txt")}
 
 
+# filename -> (terms list identity, compiled pattern). load_text_lines returns
+# the same cached list object until the file changes, so identity comparison is
+# enough to know when to recompile.
+_word_re_cache: dict[str, tuple[int, re.Pattern]] = {}
+
+
 def _word_list_re(filename: str) -> re.Pattern | None:
     terms = _config_terms(filename)
     if not terms:
         return None
-    return re.compile(r"\b(" + "|".join(re.escape(t) for t in terms) + r")\b", re.I)
+    cached = _word_re_cache.get(filename)
+    if cached and cached[0] == id(terms):
+        return cached[1]
+    pattern = re.compile(r"\b(" + "|".join(re.escape(t) for t in terms) + r")\b", re.I)
+    _word_re_cache[filename] = (id(terms), pattern)
+    return pattern
 
 
 def _cliche_diction_re() -> re.Pattern | None:

@@ -69,26 +69,12 @@ def stance_directive(stance: Stance | None) -> str:
     States only the MOVE (agree/disagree + strength). HOW it is expressed —
     sharp, warm, cold, mocking — comes from the character's persona and voice
     examples, never from here; tone direction would flatten every companion
-    into the same register.
+    into the same register. Wording lives in config/directives.yaml
+    (stance_{move}_{soft|hard} keys, live-editable).
     """
     if stance is None:
         return ""
-    if stance.move == "disagree":
-        if stance.strength >= 2:
-            return (
-                f"- You DISAGREE with this {stance.approach} approach, firmly — "
-                "expressed the way YOUR character would."
-            )
-        return (
-            f"- You have doubts about this {stance.approach} approach — voice them "
-            "the way YOUR character would."
-        )
-    if stance.strength >= 2:
-        return (
-            f"- You strongly AGREE with this {stance.approach} approach — back them "
-            "up the way YOUR character would."
-        )
-    return (
-        f"- You lean toward agreeing with this {stance.approach} approach — "
-        "in your own manner."
-    )
+    from ttrpg_crew.prompts.directives import directive
+
+    key = f"stance_{stance.move}_{'hard' if stance.strength >= 2 else 'soft'}"
+    return directive(key, approach=stance.approach)

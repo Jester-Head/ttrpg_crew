@@ -1,16 +1,14 @@
 """Top-level orchestration for a single TTRPG beat.
 
-This is a SCAFFOLD. It wires together the pieces that already exist
-(character registry, prompt loader, beat runner) into the flow outlined
-below, and marks the parts that are not built yet with TODOs:
+Each kickoff() call runs one beat:
 
-    1. load character profiles   -> character_registry
-    2. load current game state   -> TODO: persistence (save_game)
-    3. build prompt variables     -> character_registry
-    4. run moderator              -> TODO: manager_agent.yaml / manager_task.yaml
-                                      are empty; falls back to "everyone speaks"
-    5. run selected agents        -> beat_runner
-    6. update state               -> in-memory only for now
+    1. load character profiles + campaign grounding (character_registry, knowledge)
+    2. game state (in-memory; save/load persistence is still future work)
+    3. build prompt variables                        (character_registry)
+    4. pick speakers: deterministic selector by default, LLM moderator opt-in
+    5. classify player intent + assign companion stances (intent, stance)
+    6. run the GM and selected companions            (beat_runner)
+    7. audit/edit output, update transcript and scene state
 """
 
 from __future__ import annotations
@@ -23,6 +21,7 @@ from typing import Any
 from crewai import Crew, Process, Task
 from pydantic import ValidationError
 
+from ttrpg_crew.config_loader import config_section
 from ttrpg_crew.game.intent import classify_intent
 from ttrpg_crew.game.schemas import ModeratorSelection
 from ttrpg_crew.game.stance import assign_stance, stance_directive
@@ -68,7 +67,6 @@ class TTRPGFlow:
         llm: Any = None,
         manager_llm: Any = None,
         editor_llm: Any = None,
-        llm_tier_map: dict[str, str] | None = None,
         human_player_name: str = "Player",
         debug: bool = False,
         use_llm_moderator: bool = False,
@@ -93,7 +91,6 @@ class TTRPGFlow:
         # The editor fixes flagged output; model-agnostic, defaults to the main
         # model. Point it at a faster model later if desired.
         self.editor_llm = editor_llm or llm
-        self.llm_tier_map = llm_tier_map
         self.transcript = Transcript()
 
         # Fail fast with guidance if the campaign/lore/SRD corpus is missing
@@ -148,9 +145,8 @@ class TTRPGFlow:
 
     @staticmethod
     def _recent_story_chars() -> int:
-        """Cap on the story-so-far injected each beat (models.yaml context:)."""
-        from ttrpg_crew.config_loader import config_section
-
+        """Cap on the story-so-far injected each beat (models.yaml context:),
+        read live so it can be tuned mid-session."""
         try:
             return int(config_section("context").get("recent_story_chars", 4000))
         except (TypeError, ValueError):
@@ -243,7 +239,6 @@ class TTRPGFlow:
                 manager_vars,
                 tier=self.tier,
                 llm=self.manager_llm,
-                llm_tier_map=self.llm_tier_map,
                 verbose=self.debug,
             )
             task_config = load_task_for_game_state(
@@ -251,8 +246,6 @@ class TTRPGFlow:
                 manager_vars,
                 self.game_state.scene_type,
                 tier=self.tier,
-                llm=self.llm,
-                llm_tier_map=self.llm_tier_map,
             )
             task = Task(
                 description=task_config["description"],
@@ -334,7 +327,6 @@ class TTRPGFlow:
             common_vars,
             tier=self.tier,
             llm=self.llm,
-            llm_tier_map=self.llm_tier_map,
             tools=gm_tools,
             verbose=self.debug,
         )
@@ -344,7 +336,6 @@ class TTRPGFlow:
                 companion_prompt_vars[speaker_id],
                 tier=self.tier,
                 llm=self.llm,
-                llm_tier_map=self.llm_tier_map,
                 verbose=self.debug,
             )
             for speaker_id in selection.selected_speakers
@@ -358,7 +349,6 @@ class TTRPGFlow:
             tier=self.tier,
             llm=self.llm,
             editor_llm=self.editor_llm,
-            llm_tier_map=self.llm_tier_map,
             debug=self.debug,
             direct_companions=self.use_direct_companions,
         )

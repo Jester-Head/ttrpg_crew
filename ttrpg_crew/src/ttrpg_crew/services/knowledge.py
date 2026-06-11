@@ -23,7 +23,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from ttrpg_crew.config_loader import config_section
+from ttrpg_crew.config_loader import config_section, load_text_lines, load_yaml_config
 
 def _find_project_root() -> Path:
     """Locate the data root: the folder that holds ``knowledge/``.
@@ -83,19 +83,9 @@ def require_data_root() -> None:
             "TTRPG_CREW_ROOT to the folder that contains `knowledge/`."
         )
 
-def _retrieval_config() -> dict[str, Any]:
-    """Read the `retrieval:` section of config/models.yaml (with fallbacks)."""
-    import yaml
-
-    path = _CONFIG_DIR / "models.yaml"
-    if path.is_file():
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        if isinstance(data, dict) and isinstance(data.get("retrieval"), dict):
-            return data["retrieval"]
-    return {}
-
-
-_rc = _retrieval_config()
+# The `retrieval:` section of models.yaml. Frozen at import on purpose: the
+# collection/chunking must stay consistent with the on-disk index for a run.
+_rc = config_section("retrieval")
 
 # Retrieval knobs — sourced from config/models.yaml (see `retrieval:`), so the
 # corpora and chunk sizes are curated in config, not hardcoded here. Name banks
@@ -132,15 +122,17 @@ _NAME_BANK_DIR = _KNOWLEDGE_DIR / "name_banks"
 
 
 def load_name_banks() -> dict[str, list[str]]:
-    """Load curated names keyed by ancestry (e.g. {'human': [...], 'elf': [...]})."""
+    """Load curated names keyed by ancestry (e.g. {'human': [...], 'elf': [...]}).
+
+    Called every beat (name-pool sampling); each bank file is mtime-cached.
+    """
     banks: dict[str, list[str]] = {}
     if not _NAME_BANK_DIR.is_dir():
         return banks
     for path in sorted(_NAME_BANK_DIR.glob("*_names.txt")):
-        ancestry = path.stem.replace("_names", "")
-        names = [n.strip() for n in path.read_text(encoding="utf-8").splitlines() if n.strip()]
+        names = load_text_lines(path)
         if names:
-            banks[ancestry] = names
+            banks[path.stem.replace("_names", "")] = names
     return banks
 
 
@@ -179,14 +171,8 @@ def sample_style_cues(per_category: int | None = None) -> str:
     """
     if per_category is None:
         per_category = _sampling_count("style_cues_per_category", 2)
-    import yaml
-
-    path = _CONFIG_DIR / "style_palette.yaml"
-    if not path.is_file():
-        return ""
-    with path.open(encoding="utf-8") as handle:
-        data = yaml.safe_load(handle)
-    if not isinstance(data, dict):
+    data = load_yaml_config(_CONFIG_DIR / "style_palette.yaml")
+    if not data:
         return ""
 
     # Each group is a list of synonyms/phrases, or a single bare phrase.

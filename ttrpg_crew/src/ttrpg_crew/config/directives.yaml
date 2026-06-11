@@ -1,0 +1,37 @@
+# Wording for the engine-built prompt lines: the THIS BEAT block each
+# companion receives (beat_runner.py), stance lines (stance.py), and the
+# direct-path framing. WHICH lines fire is engine logic; the words are yours.
+#
+# Live-editable: changes apply on the next beat, no restart. Templates use
+# {placeholders}; keep a key's placeholders when rewording it (extra ones are
+# an error and the code falls back to its built-in default for that key).
+# Delete or blank a key to fall back to the built-in default too.
+
+# The block header above all directive lines.
+header: "THIS BEAT:"
+
+# Player intent. Placeholders: {name} = this companion, {player_input} = the
+# player's words, {situations} = detected situation tags.
+direct_question: '- The player is asking YOU ({name}) a direct question: "{player_input}". Answer THAT question, in character.'
+direct_address: '- The player is speaking directly to YOU ({name}): "{player_input}". Respond to them.'
+question: "- The player asked a question; only chime in if you add something."
+action: "- The player took an action; react to it, don't narrate it."
+situation: "- Situation: {situations}."
+
+# Who else speaks, what was said, and the anti-echo rule.
+# Placeholders: {others} = other speakers this beat, {name} = this companion.
+also_speaking: "- Also speaking this beat: {others}."
+already_said: "- Already said this beat:"
+anti_echo: "- Do NOT repeat, echo, or paraphrase anyone else's line or mannerisms. Say only what {name} would say, or [observes]."
+
+# Stance lines (game/stance.py): the engine picks the move; the words state
+# ONLY the move, register belongs to the character. Placeholder: {approach}.
+stance_disagree_hard: "- You DISAGREE with this {approach} approach, firmly, expressed the way YOUR character would."
+stance_disagree_soft: "- You have doubts about this {approach} approach, voice them the way YOUR character would."
+stance_agree_hard: "- You strongly AGREE with this {approach} approach, back them up the way YOUR character would."
+stance_agree_soft: "- You lean toward agreeing with this {approach} approach, in your own manner."
+
+# Direct-path framing (companions as plain chat completions).
+# Placeholder: {name} = this companion.
+said_so_far: "So far this beat:"
+respond_now: "Respond now as {name}, in character, your actions and words only (or [observes]). No analysis, reasoning, or planning."

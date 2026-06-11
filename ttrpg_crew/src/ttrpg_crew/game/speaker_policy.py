@@ -205,7 +205,8 @@ def calculate_soft_speaker_weights(game_state, transcript: str, available_speake
         spotlight_need = max(0.0, 1.0 - character.recent_turns * 0.25)
         recent_dominance_penalty = min(1.0, character.recent_turns * 0.30)
 
-        # TODO: Replace with actual scene relevance logic.
+        # Neutral placeholder so spotlight_need and recency dominate; refine if
+        # the LLM-moderator path ever needs real scene-relevance scoring.
         scene_relevance = 0.50
 
         overall_score = (

@@ -7,8 +7,9 @@ import re
 from pathlib import Path
 from typing import Any, Literal
 
-import yaml
 from jinja2 import Environment, StrictUndefined
+
+from ttrpg_crew.config_loader import load_yaml_config
 
 AgentRole = Literal["gm", "companion", "manager"]
 
@@ -29,14 +30,21 @@ _RESERVED_TASK_DOC_KEYS = frozenset(
 
 def _read_yaml(path: Path) -> dict[str, Any]:
     assert path.is_file(), f"Prompt file not found: {path}"
-    with path.open(encoding="utf-8") as handle:
-        data = yaml.safe_load(handle)
-    assert isinstance(data, dict), f"Expected mapping in {path}"
+    data = load_yaml_config(path)  # mtime-cached; live edits still apply
+    assert data, f"Expected non-empty mapping in {path}"
     return data
 
 
+# Compiled-template cache: prompt text is static between config edits, only the
+# variables change per beat, so parse each template string once.
+_template_cache: dict[str, Any] = {}
+
+
 def _render_template(text: str, variables: dict[str, Any]) -> str:
-    template = _JINJA_ENV.from_string(text)
+    template = _template_cache.get(text)
+    if template is None:
+        template = _JINJA_ENV.from_string(text)
+        _template_cache[text] = template
     return template.render(**variables).strip()
 
 
@@ -138,6 +146,7 @@ def list_task_keys_from_doc(doc: dict[str, Any]) -> list[str]:
 
 
 def load_models_config() -> dict[str, Any]:
+    # Same mtime-cached read as the rest of the engine (config_loader).
     return _read_yaml(_PROMPT_CONFIG_DIR / "models.yaml")
 
 
@@ -191,22 +200,14 @@ def resolve_tier_for_model(model_id: str | None) -> str:
     return default_tier
 
 
-def resolve_model_tier(
-    *,
-    tier: str | None = None,
-    llm: str | None = None,
-    llm_tier_map: dict[str, str] | None = None,
-) -> str:
-    """Resolve tier from explicit arg, env, or optional llm→tier map."""
+def resolve_model_tier(*, tier: str | None = None) -> str:
+    """Resolve tier from explicit arg, env, or the configured default."""
     if tier:
         return tier
 
     env_tier = os.getenv("TTRPG_CREW_MODEL_TIER")
     if env_tier:
         return env_tier
-
-    if llm and llm_tier_map and llm in llm_tier_map:
-        return llm_tier_map[llm]
 
     models = load_models_config()
     default_tier = models.get("default_tier", "large")
@@ -238,8 +239,6 @@ def load_agent_config(
     variables: dict[str, Any],
     *,
     tier: str | None = None,
-    llm: str | None = None,
-    llm_tier_map: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """
     Build a CrewAI Agent config dict (role, goal, backstory) from YAML.
@@ -251,9 +250,7 @@ def load_agent_config(
     base = doc.get("base", {})
     assert isinstance(base, dict), "agent yaml must define base:"
 
-    resolved_tier = resolve_model_tier(
-        tier=tier, llm=llm, llm_tier_map=llm_tier_map
-    )
+    resolved_tier = resolve_model_tier(tier=tier)
 
     merged = dict(base)
     tier_block = doc.get("model_tiers", {}).get(resolved_tier, {})
@@ -274,8 +271,6 @@ def load_task_config(
     variables: dict[str, Any],
     *,
     tier: str | None = None,
-    llm: str | None = None,
-    llm_tier_map: dict[str, str] | None = None,
     task_key: str = "narrative",
 ) -> dict[str, str]:
     """
@@ -286,9 +281,7 @@ def load_task_config(
     """
     path = _PROMPT_CONFIG_DIR / task_file
     doc = _read_yaml(path)
-    resolved_tier = resolve_model_tier(
-        tier=tier, llm=llm, llm_tier_map=llm_tier_map
-    )
+    resolved_tier = resolve_model_tier(tier=tier)
     merged_fields = _build_merged_task_fields(doc, task_key, resolved_tier)
 
     result: dict[str, str] = {}
@@ -305,8 +298,6 @@ def load_task_for_game_state(
     game_state: str,
     *,
     tier: str | None = None,
-    llm: str | None = None,
-    llm_tier_map: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """
     Resolve game_state -> task_key, then load that task from the role's YAML file.
@@ -316,11 +307,4 @@ def load_task_for_game_state(
     """
     task_key = resolve_task_key(agent_role, game_state)
     task_file = _TASK_FILES[agent_role]
-    return load_task_config(
-        task_file,
-        variables,
-        tier=tier,
-        llm=llm,
-        llm_tier_map=llm_tier_map,
-        task_key=task_key,
-    )
+    return load_task_config(task_file, variables, tier=tier, task_key=task_key)

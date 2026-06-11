@@ -23,21 +23,14 @@ def build_agent(
     variables: dict[str, Any],
     *,
     tier: str | None = None,
-    llm: str | None = None,
-    llm_tier_map: dict[str, str] | None = None,
+    llm: Any = None,
     verbose: bool = True,
     allow_delegation: bool = False,
     tools: list[Any] | None = None,
 ) -> Agent:
     agent_file = _AGENT_FILES[agent_type]
 
-    config = load_agent_config(
-        agent_file,
-        variables,
-        tier=tier,
-        llm=llm,
-        llm_tier_map=llm_tier_map,
-    )
+    config = load_agent_config(agent_file, variables, tier=tier)
 
     return Agent(
         role=config["role"],
