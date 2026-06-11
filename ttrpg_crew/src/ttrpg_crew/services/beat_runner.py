@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Any
+from typing import Any, Callable
 
 from crewai import Agent, Crew, Process, Task
 
@@ -73,7 +73,8 @@ class PromptBackedBeatRunner:
         gm_should_frame_first: bool = True,
         beat_intent: BeatIntent | None = None,
         stance_hints: dict[str, str] | None = None,
-    ):
+        on_segment: Callable[[BeatSegment], None] | None = None,
+    ) -> Beat:
         stance_hints = stance_hints or {}
         tasks: list[Task] = []
         agents: list[Agent] = []
@@ -250,7 +251,7 @@ class PromptBackedBeatRunner:
             if v.get("character_name")
         )
 
-        final: list[tuple[str, str]] = []
+        beat = Beat()
         prior_companion_lines: list[str] = []
         for label, text in outputs:
             self._diag(f"[output] {label}: {text}")
@@ -291,11 +292,42 @@ class PromptBackedBeatRunner:
 
             if label != "GM":
                 prior_companion_lines.append(text)
-            final.append((label, text))
 
-        result = self._assemble_beat(final)
-        session_log.beat(player_input.strip() or "Opening", str(result))
-        return result
+            # The segment is final (audited + edited) the moment it leaves this
+            # loop iteration — deliver it to the streaming consumer immediately.
+            segment = self._build_segment(label, text, beat)
+            if segment and on_segment is not None:
+                try:
+                    on_segment(segment)
+                except Exception as exc:  # a UI bug must never kill the beat
+                    self._diag(f"[segment] on_segment callback failed: {exc}")
+
+        session_log.beat(player_input.strip() or "Opening", str(beat))
+        return beat
+
+    def _build_segment(self, label: str, text: str, beat: Beat) -> BeatSegment | None:
+        """Finalize one output into a BeatSegment appended to the beat.
+
+        GM text gets its leaked transcript label stripped and its closing
+        hand-back prompt lifted into beat.closing_prompt (rendered last, after
+        every companion has spoken).
+        """
+        if label == "GM":
+            text = re.sub(r"^\s*GM:\s*", "", text)
+            m = self._CLOSING_PROMPT_RE.search(text)
+            if m:
+                beat.closing_prompt = m.group(0).strip(' "*_\n')
+                text = text[: m.start()].rstrip()
+            if not text:
+                return None
+            segment = BeatSegment("GM", "GM", text)
+        else:
+            name = str(
+                self.companion_prompt_vars.get(label, {}).get("character_name", label)
+            )
+            segment = BeatSegment(label, name, text)
+        beat.segments.append(segment)
+        return segment
 
     def _diag(self, line: str) -> None:
         """Diagnostic sink: print to console only in debug, but always log to file."""
@@ -476,30 +508,3 @@ class PromptBackedBeatRunner:
         re.I,
     )
 
-    def _assemble_beat(self, outputs: list[tuple[str, str]]) -> Beat:
-        """Build the structured Beat from the (possibly corrected) outputs.
-
-        Reading order: GM frame, then companions, then the GM's hand-back
-        prompt LAST. The GM generates "What do you do?" at the end of its own
-        output, but companions speak after it, so the prompt is lifted off the
-        GM text into Beat.closing_prompt (rendered last). str(beat) gives the
-        flat text the CLI prints; a UI renders the segments itself.
-        """
-        beat = Beat()
-        for label, text in outputs:
-            if label == "GM":
-                # The story-so-far is injected as "GM: ..." transcript lines and
-                # models sometimes imitate the format; strip a leaked label.
-                text = re.sub(r"^\s*GM:\s*", "", text)
-                m = self._CLOSING_PROMPT_RE.search(text)
-                if m:
-                    beat.closing_prompt = m.group(0).strip(' "*_\n')
-                    text = text[: m.start()].rstrip()
-                if text:
-                    beat.segments.append(BeatSegment("GM", "GM", text))
-            else:
-                name = str(
-                    self.companion_prompt_vars.get(label, {}).get("character_name", label)
-                )
-                beat.segments.append(BeatSegment(label, name, text))
-        return beat
