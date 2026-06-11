@@ -16,6 +16,7 @@ from ttrpg_crew.game.validator import (
 )
 from ttrpg_crew.prompts.directives import directive
 from ttrpg_crew.prompts.prompt_loader import load_task_config, load_task_for_game_state
+from ttrpg_crew.services import direct_companions
 from ttrpg_crew.services.agent_factory import build_agent
 
 
@@ -151,13 +152,15 @@ class PromptBackedBeatRunner:
 
             # Feed each companion what has been said this beat (GM frame, then
             # prior companions) so they react in context, mirroring the CrewAI
-            # path's task `context`.
+            # path's task `context`. Prompt assembly + the LLM call live in
+            # services/direct_companions.py.
             gm_text = next((text for label, text in outputs if label == "GM"), "")
             said: list[str] = [f"GM: {gm_text}"] if gm_text else []
             companion_said: list[str] = []
             for speaker_id in selected_speakers:
-                speaker_vars = {
+                merged_vars = {
                     **common_vars,
+                    **self.companion_prompt_vars[speaker_id],
                     "party_members": self._party_for(speaker_id, human_player_name),
                     "beat_directives": self._beat_directives(
                         speaker_id, beat_intent, selected_speakers, companion_said,
@@ -165,11 +168,17 @@ class PromptBackedBeatRunner:
                         stance_hint=stance_hints.get(speaker_id, ""),
                     ),
                 }
-                system, user, name = self._companion_prompt(
-                    speaker_id, speaker_vars, game_state_name, said
+                system, user, name = direct_companions.companion_messages(
+                    agent=self.companion_agents[speaker_id],
+                    merged_vars=merged_vars,
+                    game_state_name=game_state_name,
+                    tier=self.tier,
+                    said_so_far=said,
                 )
-                text, secs, prompt_tokens, completion_tokens = self._direct_companion_call(
-                    system, user
+                text, secs, prompt_tokens, completion_tokens = (
+                    direct_companions.companion_call(
+                        self.llm, system, user, debug=self.debug
+                    )
                 )
                 timings.append((speaker_id, secs))
                 outputs.append((speaker_id, text))
@@ -372,107 +381,6 @@ class PromptBackedBeatRunner:
         if others or said_lines:
             lines.append(directive("anti_echo", name=name))
         return "\n".join(lines) if len(lines) > 1 else ""
-
-    def _companion_prompt(
-        self,
-        speaker_id: str,
-        common_vars: dict[str, Any],
-        game_state_name: str,
-        said_so_far: list[str],
-    ) -> tuple[str, str, str]:
-        """Assemble (system, user, name) for a direct companion call.
-
-        Reuses the same persona (agent role/goal/backstory) and scene/rules
-        (companion task) as the CrewAI path, so an A/B isolates the ReAct wrapper
-        rather than the prompt content.
-        """
-        agent = self.companion_agents[speaker_id]
-        merged = {**common_vars, **self.companion_prompt_vars[speaker_id]}
-        name = str(merged.get("character_name", speaker_id))
-
-        cfg = load_task_for_game_state(
-            "companion",
-            merged,
-            game_state_name,
-            tier=self.tier,
-        )
-
-        system = "\n\n".join(
-            part
-            for part in (
-                (agent.role or "").strip(),
-                ("Your goal: " + agent.goal.strip()) if (agent.goal or "").strip() else "",
-                (agent.backstory or "").strip(),
-            )
-            if part
-        )
-
-        user_parts: list[str] = []
-        if said_so_far:
-            user_parts.append(directive("said_so_far") + "\n" + "\n".join(said_so_far))
-        user_parts.append(cfg["description"].strip())
-        if (cfg.get("expected_output") or "").strip():
-            user_parts.append("Output: " + cfg["expected_output"].strip())
-        user_parts.append(directive("respond_now", name=name))
-        return system, "\n\n".join(user_parts), name
-
-    def _direct_companion_call(
-        self, system: str, user: str, prefill: str = ""
-    ) -> tuple[str, float, Any, Any]:
-        """One companion turn as a plain chat completion — no CrewAI/ReAct wrapper.
-
-        `prefill` pre-shapes the reply by seeding the assistant turn (small
-        models hold format much better mid-answer). Not every OpenAI-compatible
-        server supports a trailing assistant message, so an empty or failed
-        prefilled call quietly retries without it.
-
-        Returns (text, seconds, prompt_tokens, completion_tokens). Token counts
-        are None when the call path can't report usage.
-        """
-        base_messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ]
-        start = time.perf_counter()
-        text, prompt_tokens, completion_tokens = "", None, None
-
-        def _call(messages):
-            import litellm
-
-            params: dict[str, Any] = {}
-            for attr in ("temperature", "top_p", "frequency_penalty", "presence_penalty", "timeout"):
-                value = getattr(self.llm, attr, None)
-                if value is not None:
-                    params[attr] = value
-            return litellm.completion(
-                model=getattr(self.llm, "model", None),
-                api_base=getattr(self.llm, "base_url", None),
-                api_key=getattr(self.llm, "api_key", None),
-                messages=messages,
-                **params,
-            )
-
-        try:
-            resp = None
-            if prefill:
-                try:
-                    resp = _call(base_messages + [{"role": "assistant", "content": prefill}])
-                    if not (resp.choices[0].message.content or "").strip():
-                        resp = None  # server ignored the prefill; retry plain
-                except Exception:
-                    resp = None
-            if resp is None:
-                prefill = ""
-                resp = _call(base_messages)
-            text = (prefill + (resp.choices[0].message.content or "")).strip()
-            usage = getattr(resp, "usage", None)
-            prompt_tokens = getattr(usage, "prompt_tokens", None)
-            completion_tokens = getattr(usage, "completion_tokens", None)
-        except Exception as exc:  # fall back to the crewai wrapper (text only)
-            if self.debug:
-                print(f"[direct] litellm.completion failed ({exc}); using llm.call")
-            text = str(self.llm.call(base_messages)).strip()
-        return text, time.perf_counter() - start, prompt_tokens, completion_tokens
 
     def _edit_output(
         self, label: str, flagged_text: str, violations: list, human_player_name: str
