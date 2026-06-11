@@ -1,18 +1,20 @@
 from __future__ import annotations
 
-import re
 import time
-from typing import Any
+from typing import Any, Callable
 
 from crewai import Agent, Crew, Process, Task
 
 from ttrpg_crew import session_log
+from ttrpg_crew.game.beat import Beat, BeatSegment
 from ttrpg_crew.game.intent import BeatIntent
 from ttrpg_crew.game.validator import (
-    CLOSING_PROMPT_WORDS,
     audit,
     duplicate_companion_line,
+    extract_closing_prompt,
+    normalize_rewrite,
     strip_companion_prompt,
+    strip_speaker_label,
 )
 from ttrpg_crew.prompts.directives import directive
 from ttrpg_crew.prompts.prompt_loader import load_task_config, load_task_for_game_state
@@ -72,7 +74,8 @@ class PromptBackedBeatRunner:
         gm_should_frame_first: bool = True,
         beat_intent: BeatIntent | None = None,
         stance_hints: dict[str, str] | None = None,
-    ):
+        on_segment: Callable[[BeatSegment], None] | None = None,
+    ) -> Beat:
         stance_hints = stance_hints or {}
         tasks: list[Task] = []
         agents: list[Agent] = []
@@ -249,7 +252,7 @@ class PromptBackedBeatRunner:
             if v.get("character_name")
         )
 
-        final: list[tuple[str, str]] = []
+        beat = Beat()
         prior_companion_lines: list[str] = []
         for label, text in outputs:
             self._diag(f"[output] {label}: {text}")
@@ -290,11 +293,44 @@ class PromptBackedBeatRunner:
 
             if label != "GM":
                 prior_companion_lines.append(text)
-            final.append((label, text))
 
-        result = self._assemble_beat(final)
-        session_log.beat(player_input.strip() or "Opening", result)
-        return result
+            # The segment is final (audited + edited) the moment it leaves this
+            # loop iteration — deliver it to the streaming consumer immediately.
+            # Contract note: typing indicators will eventually need a
+            # "speaker started" signal too; expect this single-event hook to
+            # grow a sibling rather than treating its shape as settled.
+            segment = self._build_segment(label, text, beat)
+            if segment and on_segment is not None:
+                try:
+                    on_segment(segment)
+                except Exception as exc:  # a UI bug must never kill the beat
+                    self._diag(f"[segment] on_segment callback failed: {exc}")
+
+        session_log.beat(player_input.strip() or "Opening", str(beat))
+        return beat
+
+    def _build_segment(self, label: str, text: str, beat: Beat) -> BeatSegment | None:
+        """Finalize one output into a BeatSegment appended to the beat.
+
+        GM text gets its leaked transcript label stripped and its closing
+        hand-back prompt lifted into beat.closing_prompt (rendered last, after
+        every companion has spoken).
+        """
+        if label == "GM":
+            text = strip_speaker_label(text, "GM")
+            text, prompt = extract_closing_prompt(text)
+            if prompt:
+                beat.closing_prompt = prompt
+            if not text:
+                return None
+            segment = BeatSegment("GM", "GM", text)
+        else:
+            name = str(
+                self.companion_prompt_vars.get(label, {}).get("character_name", label)
+            )
+            segment = BeatSegment(label, name, text)
+        beat.segments.append(segment)
+        return segment
 
     def _diag(self, line: str) -> None:
         """Diagnostic sink: print to console only in debug, but always log to file."""
@@ -433,45 +469,5 @@ class PromptBackedBeatRunner:
             process=Process.sequential,
             verbose=False,
         )
-        return str(crew.kickoff()).strip()
+        return normalize_rewrite(str(crew.kickoff()), character_name)
 
-    # The GM's closing hand-back-to-player line (in optional quotes/markdown),
-    # at the very end of its output. Wording variants come from the validator
-    # (single source). The leading wrapper only matches right after whitespace
-    # so a quote that closes the preceding dialogue isn't swallowed.
-    _CLOSING_PROMPT_RE = re.compile(
-        r'(?:(?<=\s)["*_]+|^["*_]+|(?<=\s)|^)'
-        + CLOSING_PROMPT_WORDS
-        + r'[?!.]*["*_]*\s*$',
-        re.I,
-    )
-
-    def _assemble_beat(self, outputs: list[tuple[str, str]]) -> str:
-        """Join the (possibly corrected) per-agent outputs into the beat text.
-
-        Reading order: GM frame, then companions, then the GM's hand-back
-        prompt LAST. The GM generates "What do you do?" at the end of its own
-        output, but companions speak after it, so the prompt is lifted off the
-        GM text and re-appended after the final companion line.
-        """
-        lines: list[str] = []
-        closing_prompt = ""
-        for label, text in outputs:
-            if label == "GM":
-                # The story-so-far is injected as "GM: ..." transcript lines and
-                # models sometimes imitate the format; strip a leaked label.
-                text = re.sub(r"^\s*GM:\s*", "", text)
-                m = self._CLOSING_PROMPT_RE.search(text)
-                if m:
-                    closing_prompt = m.group(0).strip(' "*_\n')
-                    text = text[: m.start()].rstrip()
-                if text:
-                    lines.append(text)
-            else:
-                name = self.companion_prompt_vars.get(label, {}).get(
-                    "character_name", label
-                )
-                lines.append(f"{name}: {text}")
-        if closing_prompt:
-            lines.append(closing_prompt)
-        return "\n\n".join(lines)

@@ -295,7 +295,7 @@ class TTRPGFlow:
         ]
         return selection
 
-    def kickoff(self, *, player_input: str = "") -> Any:
+    def kickoff(self, *, player_input: str = "", on_segment: Any = None) -> Any:
         beat_start = time.perf_counter()
         common_vars = self._common_vars(player_input=player_input)
 
@@ -392,6 +392,7 @@ class TTRPGFlow:
             gm_should_frame_first=selection.gm_should_frame_first,
             beat_intent=beat_intent,
             stance_hints=stance_hints,
+            on_segment=on_segment,
         )
         beat_secs = time.perf_counter() - beat_call_start
 

@@ -197,6 +197,13 @@ def run():
     print("Loading Gloamvere City…  (first load can take a minute)", flush=True)
     flow = _build_flow()
 
+    # Segments arrive one speaker at a time (audited and edited before
+    # delivery), so the GM's text shows the moment it's ready instead of
+    # after every companion — the same per-segment contract a chat-style
+    # GUI will consume ("X is typing…" then the finished message).
+    def _print_segment(segment) -> None:
+        print(segment.render() + "\n", flush=True)
+
     player_input = ""
     first = True
     while True:
@@ -205,8 +212,9 @@ def run():
         cue = "The party gathers" if first else "The world responds"
         print(f"\n{cue}… (a moment on a local model)\n", flush=True)
 
-        beat = flow.kickoff(player_input=player_input)
-        print(str(beat).strip() + "\n", flush=True)
+        beat = flow.kickoff(player_input=player_input, on_segment=_print_segment)
+        if beat.closing_prompt:
+            print(beat.closing_prompt + "\n", flush=True)
 
         if first:
             print("(Type your action and press Enter. 'quit' to leave.)", flush=True)

@@ -16,9 +16,11 @@ base:
     - GM: address the player as "you"; describe only the world and NPCs. Never
       voice, quote, or describe the player or the companions. End by handing the
       turn back (e.g. "What do you do?").
-    - Companion ({{ character_name }}): one or two short spoken sentences in
-      their own voice — actual dialogue, not a description of their movements,
-      tone, or expression. A brief [bracketed action] before a line is fine.
+    - Companion ({{ character_name }}): first person, action AND dialogue
+      together ("I check the lock. 'Give me a minute.'"), in their own voice.
+      Keep the SAME length and shape as the original text — fix only the
+      flagged problems, do not compress or expand it. Never scene description,
+      never their own name in third person, never "What do you do?".
     - Never speak, act, or decide for {{ human_player_name }}.
     - Keep the gothic register, but never stack adjectives or use formulaic
       "a ___ of" phrasing.
@@ -29,7 +31,8 @@ base:
     {% endfor %}{% endif %}
     Examples (bad then good):
     - Companion self-narration. BAD: (I lean in, my voice dropping to a hum, my
-      eyes searching yours.)  GOOD: "Easy now. We've carried worse than this."
+      eyes searching yours.)  GOOD: I lean in. "Easy now. We've carried worse
+      than this."
     - GM voicing a companion. BAD: Brassel leans in. "We should hurry," he warns.
       GOOD: Brassel waits at your shoulder.
     - GM narrating the player. BAD: You feel a chill and decide to run for the
