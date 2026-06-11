@@ -64,27 +64,31 @@ def assign_stance(profile: dict[str, Any], player_input: str) -> Stance | None:
 
 
 def stance_directive(stance: Stance | None) -> str:
-    """Render a stance as THIS BEAT directive lines (ported from the old
-    pc_banter_agree/disagree templates: stance + register, never a lecture)."""
+    """Render a stance as a THIS BEAT directive line.
+
+    States only the MOVE (agree/disagree + strength). HOW it is expressed —
+    sharp, warm, cold, mocking — comes from the character's persona and voice
+    examples, never from here; tone direction would flatten every companion
+    into the same register.
+    """
     if stance is None:
         return ""
     if stance.move == "disagree":
         if stance.strength >= 2:
             return (
-                f"- You DISAGREE with this {stance.approach} approach, firmly. Be direct, "
-                "give your reason in a few words, offer a concrete alternative. "
-                "Friendly tension only; no lecturing, no hostility."
+                f"- You DISAGREE with this {stance.approach} approach, firmly — "
+                "expressed the way YOUR character would."
             )
         return (
-            f"- You have doubts about this {stance.approach} approach. Gentle pushback: "
-            "lead with your hesitation, maybe offer an alternative. Keep rapport."
+            f"- You have doubts about this {stance.approach} approach — voice them "
+            "the way YOUR character would."
         )
     if stance.strength >= 2:
         return (
-            f"- You strongly AGREE with this {stance.approach} approach. Back them up and "
-            "commit to your part. Don't gush; one beat of support."
+            f"- You strongly AGREE with this {stance.approach} approach — back them "
+            "up the way YOUR character would."
         )
     return (
-        f"- You lean toward agreeing with this {stance.approach} approach. Brief support, "
-        "maybe one practical addition."
+        f"- You lean toward agreeing with this {stance.approach} approach — "
+        "in your own manner."
     )
