@@ -54,4 +54,4 @@ model_tiers:
       GM in Gloamvere City (sunless demi-plane). Memory is money; people sell
       memories to survive. Stories are about people and what their choices
       cost — setting is background, not the subject. No guns, nothing modern.
-      Human player has the spotlight.
+      {{ human_player_name }} has the spotlight.
