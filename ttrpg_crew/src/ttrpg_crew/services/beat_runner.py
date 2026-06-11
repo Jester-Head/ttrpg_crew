@@ -7,6 +7,7 @@ from typing import Any
 from crewai import Agent, Crew, Process, Task
 
 from ttrpg_crew import session_log
+from ttrpg_crew.game.beat import Beat, BeatSegment
 from ttrpg_crew.game.intent import BeatIntent
 from ttrpg_crew.game.validator import (
     CLOSING_PROMPT_WORDS,
@@ -293,7 +294,7 @@ class PromptBackedBeatRunner:
             final.append((label, text))
 
         result = self._assemble_beat(final)
-        session_log.beat(player_input.strip() or "Opening", result)
+        session_log.beat(player_input.strip() or "Opening", str(result))
         return result
 
     def _diag(self, line: str) -> None:
@@ -433,7 +434,36 @@ class PromptBackedBeatRunner:
             process=Process.sequential,
             verbose=False,
         )
-        return str(crew.kickoff()).strip()
+        return self._normalize_rewrite(str(crew.kickoff()), character_name)
+
+    # Lead-in labels the editor sometimes prepends despite instructions
+    # ("Rewritten text:", "Here is the corrected version:", ...).
+    _REWRITE_LEADIN_RE = re.compile(
+        r"^(?:here(?:'s| is)[^\n:]{0,60}:|(?:the )?(?:rewritten|corrected|revised|edited|fixed)"
+        r"[^\n:]{0,40}:|rewrite:|output:)\s*\n?",
+        re.I,
+    )
+
+    @classmethod
+    def _normalize_rewrite(cls, text: str, character_name: str = "") -> str:
+        """Strip wrapper artifacts from an editor rewrite, deterministically.
+
+        The rewrite replaces in-fiction text 1:1, so it must come back shaped
+        like the original: no code fences, no "Rewritten text:" lead-ins, no
+        speaker label. Conservative on purpose — wrapping quotes are left alone
+        because a companion line legitimately IS a quoted sentence.
+        """
+        t = text.strip()
+        # ``` or ```text fences around the whole reply
+        fence = re.match(r"^```[^\n]*\n(.*?)\n?```\s*$", t, re.S)
+        if fence:
+            t = fence.group(1).strip()
+        t = cls._REWRITE_LEADIN_RE.sub("", t).strip()
+        # a leaked speaker label ("GM:" / "Mireille Vane:") at the very start
+        labels = ["GM"] + ([character_name] if character_name else [])
+        for label in labels:
+            t = re.sub(rf"^\s*{re.escape(label)}\s*:\s*", "", t)
+        return t.strip()
 
     # The GM's closing hand-back-to-player line (in optional quotes/markdown),
     # at the very end of its output. Wording variants come from the validator
@@ -446,16 +476,16 @@ class PromptBackedBeatRunner:
         re.I,
     )
 
-    def _assemble_beat(self, outputs: list[tuple[str, str]]) -> str:
-        """Join the (possibly corrected) per-agent outputs into the beat text.
+    def _assemble_beat(self, outputs: list[tuple[str, str]]) -> Beat:
+        """Build the structured Beat from the (possibly corrected) outputs.
 
         Reading order: GM frame, then companions, then the GM's hand-back
         prompt LAST. The GM generates "What do you do?" at the end of its own
         output, but companions speak after it, so the prompt is lifted off the
-        GM text and re-appended after the final companion line.
+        GM text into Beat.closing_prompt (rendered last). str(beat) gives the
+        flat text the CLI prints; a UI renders the segments itself.
         """
-        lines: list[str] = []
-        closing_prompt = ""
+        beat = Beat()
         for label, text in outputs:
             if label == "GM":
                 # The story-so-far is injected as "GM: ..." transcript lines and
@@ -463,15 +493,13 @@ class PromptBackedBeatRunner:
                 text = re.sub(r"^\s*GM:\s*", "", text)
                 m = self._CLOSING_PROMPT_RE.search(text)
                 if m:
-                    closing_prompt = m.group(0).strip(' "*_\n')
+                    beat.closing_prompt = m.group(0).strip(' "*_\n')
                     text = text[: m.start()].rstrip()
                 if text:
-                    lines.append(text)
+                    beat.segments.append(BeatSegment("GM", "GM", text))
             else:
-                name = self.companion_prompt_vars.get(label, {}).get(
-                    "character_name", label
+                name = str(
+                    self.companion_prompt_vars.get(label, {}).get("character_name", label)
                 )
-                lines.append(f"{name}: {text}")
-        if closing_prompt:
-            lines.append(closing_prompt)
-        return "\n\n".join(lines)
+                beat.segments.append(BeatSegment(label, name, text))
+        return beat
