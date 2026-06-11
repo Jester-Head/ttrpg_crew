@@ -265,10 +265,14 @@ def strip_speaker_label(text: str, *labels: str) -> str:
 
 
 # Lead-in labels a rewriter sometimes prepends despite instructions
-# ("Rewritten text:", "Here is the corrected version:", ...).
+# ("Rewritten text:", "Here is the corrected version:", ...). The "here is"
+# form must mention the rewrite itself (corrected/revised/text/version/...) so
+# in-fiction lines like 'Here is the key: take it.' are never stripped.
 _REWRITE_LEADIN_RE = re.compile(
-    r"^(?:here(?:'s| is)[^\n:]{0,60}:|(?:the )?(?:rewritten|corrected|revised|edited|fixed)"
-    r"[^\n:]{0,40}:|rewrite:|output:)\s*\n?",
+    r"^(?:here(?:'s| is)[^\n:]{0,40}?"
+    r"(?:rewrit\w*|correct\w*|revis\w*|edit\w*|fix\w*|version|text|output)[^\n:]{0,20}:"
+    r"|(?:the )?(?:rewritten|corrected|revised|edited|fixed)[^\n:]{0,40}:"
+    r"|rewrite:|output:)\s*\n?",
     re.I,
 )
 
