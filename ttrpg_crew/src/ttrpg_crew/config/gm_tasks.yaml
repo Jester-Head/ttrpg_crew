@@ -40,7 +40,10 @@ _defaults:
       everyday word over a fancy one. Do NOT stack adjectives or pile on
       metaphors (no "dirge-like scent", no "stygian, caliginous gloom"); at most
       one vivid image per beat.
-      {% if style_cues %}Natural phrasings you may reach for where they fit (never forced): {{ style_cues }}.{% endif %}
+      {% if style_cues %}Natural phrasings you may reach for where they fit
+      (never forced). Each is labeled with where it belongs (a sense, a part
+      of speech) — use it ONLY in that lane (a sound word never describes a
+      smell): {{ style_cues }}.{% endif %}
 
     Spotlight:
     - Never narrate what the human player does — only how the world reacts.
@@ -231,7 +234,9 @@ model_tiers:
         generic names. Names — {{ name_pool }}
         Register: gothic / grimdark, but PLAIN and concrete — no stacked
         adjectives or ornate metaphors (no "dirge-like scent"); at most one vivid
-        image per beat.{% if style_cues %} Phrasings you may use where they fit: {{ style_cues }}.{% endif %}
+        image per beat.{% if style_cues %} Phrasings you may use where they
+        fit — each labeled with its lane (sense / part of speech); never use
+        one outside its label: {{ style_cues }}.{% endif %}
       expected_output: >
         2-5 sentences, then "What do you do?" Lead with people and stakes, not
         scenery; at most one or two sensory details. No player puppeteering.
@@ -276,7 +281,7 @@ model_tiers:
         {% if companions_speaking %}{{ companions_speaking }} speak for themselves
         after you — frame only the world; don't voice or describe them.{% endif %}
         Name NEW NPCs from this list, never generic names: {{ name_pool }}
-        Gothic but PLAIN: concrete words, no stacked adjectives or fancy metaphors.{% if style_cues %} You may use: {{ style_cues }}.{% endif %}
+        Gothic but PLAIN: concrete words, no stacked adjectives or fancy metaphors.{% if style_cues %} You may use (each only as its label says): {{ style_cues }}.{% endif %}
       expected_output: >
         2-5 sentences, then "What do you do?" People and stakes first, scenery
         last.

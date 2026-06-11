@@ -1,23 +1,50 @@
-# Register cues for the GM — YOUR vocabulary, not a vocabulary test.
+# Register cues for the GM — YOUR vocabulary, categorized so words land in
+# the right lane.
 #
-# This used to push rare "gem" words plus their definitions, which produced
-# slop ("dirge-like scent"). Instead, list groups of plain, interchangeable
-# words / short phrases (synonyms) you actually want in the prose. Each beat a
-# few groups are sampled and offered to the GM as options ("a / b / c") to reach
-# for WHERE THEY FIT — never forced, never stacked.
+# Each beat a few groups are sampled from every category WITH the category
+# label attached, e.g.  sound: tolling / creak;  smell: tar / river rot
+# That label is what stops a model from using a word in the wrong sense
+# (the "dirge-like scent" failure: a sound word applied to a smell).
 #
-# Schema: a `phrases:` list. Each item is either a list of synonyms for one idea,
-# or a single phrase. Keep them grounded and concrete; avoid ornate single words.
+# Structure:
+#   - Top-level keys are categories. They can nest (sensory -> the five
+#     senses); the LEAF key becomes the label the model sees, so name leaves
+#     for how the word is used.
+#   - A leaf holds a list. Each item is either a group of interchangeable
+#     synonyms ([dim, unlit, half-dark]) or a single phrase ("rain ticking
+#     on the gutters").
+#   - Empty categories inject nothing; an empty palette means the GM just
+#     writes plainly. Delete or add categories freely — nothing is hardcoded
+#     to these names.
+#   - models.yaml sampling.style_cues_per_category controls how many groups
+#     are drawn from each leaf per beat; with many filled leaves, keep it
+#     at 1-2 so the cue line stays short.
 #
-# It is intentionally EMPTY right now — with nothing here, the GM just writes
-# plainly (no pushed vocabulary). Populate it with the register you want, e.g.:
+# Live-editable: changes apply on the next beat, no restart.
 #
-# phrases:
-#   - [dim, unlit, half-dark]              # synonyms for one idea
-#   - [grimy, soot-stained, water-stained]
-#   - "rain ticking on the gutters"        # a single concrete phrase
-#   - [mutters, grumbles, says low]
-#
-# Replace the examples above with your own. Until you do, this stays empty.
+# Examples of the shapes (replace with your own; these are placeholders, not
+# suggestions):
+#   adjectives:
+#     - [dim, unlit, half-dark]
+#   verbs:
+#     - [mutters, grumbles, says low]
+#   phrases:
+#     - "rain ticking on the gutters"
+#   sensory:
+#     sound:
+#       - [tolling, creak of ropes]
+#     smell:
+#       - [tar, river rot]
+
+adjectives: []
+
+verbs: []
 
 phrases: []
+
+sensory:
+  sight: []
+  sound: []
+  smell: []
+  taste: []
+  touch: []

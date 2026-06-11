@@ -161,12 +161,38 @@ def sample_name_pool(per_ancestry: int | None = None) -> str:
     return "; ".join(groups)
 
 
+def _palette_leaves(node: Any, label: str):
+    """Yield (category_label, groups) for each leaf category of the palette.
+
+    Categories nest arbitrarily (e.g. sensory -> sound/smell/...); the leaf
+    key is the label injected with the cue so the model knows where a word
+    belongs. A leaf's value is a list whose items are synonym groups (lists)
+    or single phrases (strings).
+    """
+    if isinstance(node, dict):
+        for key, child in node.items():
+            yield from _palette_leaves(child, str(key))
+    elif isinstance(node, list):
+        groups: list[list[str]] = []
+        for group in node:
+            if isinstance(group, list):
+                options = [str(x).strip() for x in group if str(x).strip()]
+                if options:
+                    groups.append(options)
+            elif isinstance(group, str) and group.strip():
+                groups.append([group.strip()])
+        if groups and label:
+            yield label, groups
+
+
 def sample_style_cues(per_category: int | None = None) -> str:
     """A fresh per-beat sample of register cues (config/style_palette.yaml).
 
-    The palette is groups of interchangeable words/short phrases (synonyms),
-    NOT rare words with definitions. Each beat we sample a few groups and offer
-    their options ("a / b / c") so the GM has natural phrasings to reach for.
+    The palette is categorized groups of interchangeable words/short phrases
+    (synonyms), NOT rare words with definitions. Each beat we sample a few
+    groups per leaf category and render them WITH their category label
+    ("sound: tolling / creak; smell: tar / river rot") so the model can't
+    apply a word in the wrong lane (the "dirge-like scent" failure).
     Returns '' when the palette is empty, so the GM just writes plainly.
     """
     if per_category is None:
@@ -175,20 +201,11 @@ def sample_style_cues(per_category: int | None = None) -> str:
     if not data:
         return ""
 
-    # Each group is a list of synonyms/phrases, or a single bare phrase.
-    groups: list[list[str]] = []
-    for group in data.get("phrases") or []:
-        if isinstance(group, list):
-            options = [str(x).strip() for x in group if str(x).strip()]
-            if options:
-                groups.append(options)
-        elif isinstance(group, str) and group.strip():
-            groups.append([group.strip()])
-
-    if not groups:
-        return ""
-    sample = random.sample(groups, min(per_category, len(groups)))
-    return "; ".join(" / ".join(options) for options in sample)
+    cues: list[str] = []
+    for label, groups in _palette_leaves(data, ""):
+        for options in random.sample(groups, min(per_category, len(groups))):
+            cues.append(f"{label}: " + " / ".join(options))
+    return "; ".join(cues)
 
 
 def load_campaign_frame() -> dict[str, Any]:
