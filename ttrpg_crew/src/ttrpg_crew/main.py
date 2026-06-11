@@ -202,8 +202,7 @@ def run():
     # after every companion — the same per-segment contract a chat-style
     # GUI will consume ("X is typing…" then the finished message).
     def _print_segment(segment) -> None:
-        prefix = "" if segment.is_gm else f"{segment.speaker_name}: "
-        print(f"{prefix}{segment.text}\n", flush=True)
+        print(segment.render() + "\n", flush=True)
 
     player_input = ""
     first = True

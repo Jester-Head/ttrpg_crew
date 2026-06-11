@@ -217,6 +217,30 @@ def audit_gm(
     return violations
 
 
+# The hand-back prompt at the very END of an output, in optional quote/markdown
+# wrappers. The leading wrapper only matches right after whitespace so a quote
+# closing the preceding dialogue isn't swallowed into the match.
+_CLOSING_PROMPT_END_RE = re.compile(
+    r'(?:(?<=\s)["*_]+|^["*_]+|(?<=\s)|^)'
+    + CLOSING_PROMPT_WORDS
+    + r'[?!.]*["*_]*\s*$',
+    re.I,
+)
+
+
+def extract_closing_prompt(text: str) -> tuple[str, str]:
+    """Split a trailing hand-back prompt off the text.
+
+    Returns (text_without_prompt, prompt) — prompt is "" when none is found.
+    The beat assembler uses the prompt (re-rendered after the companions);
+    companion outputs just discard it (never theirs to say).
+    """
+    m = _CLOSING_PROMPT_END_RE.search(text)
+    if not m:
+        return text, ""
+    return text[: m.start()].rstrip(), m.group(0).strip(' "*_\n')
+
+
 def strip_companion_prompt(text: str) -> str:
     """Remove a trailing hand-back prompt from a companion's output.
 
@@ -224,9 +248,45 @@ def strip_companion_prompt(text: str) -> str:
     imitation); it is never theirs to say, so the assembler strips it
     deterministically instead of waiting for an editor pass.
     """
-    return re.sub(
-        r'[\s"*_]*' + CLOSING_PROMPT_WORDS + r'[?!.]*["*_]*\s*$', "", text, flags=re.I
-    ).rstrip()
+    return extract_closing_prompt(text)[0]
+
+
+def strip_speaker_label(text: str, *labels: str) -> str:
+    """Remove a leaked leading speaker label ("GM:", "Mireille Vane:", ...).
+
+    The story-so-far is injected as "Name: ..." transcript lines and models
+    sometimes imitate the format in their own output.
+    """
+    for label in labels:
+        label = (label or "").strip()
+        if label:
+            text = re.sub(rf"^\s*{re.escape(label)}\s*:\s*", "", text)
+    return text
+
+
+# Lead-in labels a rewriter sometimes prepends despite instructions
+# ("Rewritten text:", "Here is the corrected version:", ...).
+_REWRITE_LEADIN_RE = re.compile(
+    r"^(?:here(?:'s| is)[^\n:]{0,60}:|(?:the )?(?:rewritten|corrected|revised|edited|fixed)"
+    r"[^\n:]{0,40}:|rewrite:|output:)\s*\n?",
+    re.I,
+)
+
+
+def normalize_rewrite(text: str, character_name: str = "") -> str:
+    """Strip wrapper artifacts from an editor rewrite, deterministically.
+
+    The rewrite replaces in-fiction text 1:1, so it must come back shaped like
+    the original: no code fences, no "Rewritten text:" lead-ins, no speaker
+    label. Conservative on purpose — wrapping quotes are left alone because a
+    companion line legitimately IS a quoted sentence.
+    """
+    t = text.strip()
+    fence = re.match(r"^```[^\n]*\n(.*?)\n?```\s*$", t, re.S)
+    if fence:
+        t = fence.group(1).strip()
+    t = _REWRITE_LEADIN_RE.sub("", t).strip()
+    return strip_speaker_label(t, "GM", character_name).strip()
 
 
 def audit_companion(

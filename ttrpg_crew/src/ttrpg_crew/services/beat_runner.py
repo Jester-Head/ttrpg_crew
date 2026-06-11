@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import time
 from typing import Any, Callable
 
@@ -10,10 +9,12 @@ from ttrpg_crew import session_log
 from ttrpg_crew.game.beat import Beat, BeatSegment
 from ttrpg_crew.game.intent import BeatIntent
 from ttrpg_crew.game.validator import (
-    CLOSING_PROMPT_WORDS,
     audit,
     duplicate_companion_line,
+    extract_closing_prompt,
+    normalize_rewrite,
     strip_companion_prompt,
+    strip_speaker_label,
 )
 from ttrpg_crew.prompts.directives import directive
 from ttrpg_crew.prompts.prompt_loader import load_task_config, load_task_for_game_state
@@ -295,6 +296,9 @@ class PromptBackedBeatRunner:
 
             # The segment is final (audited + edited) the moment it leaves this
             # loop iteration — deliver it to the streaming consumer immediately.
+            # Contract note: typing indicators will eventually need a
+            # "speaker started" signal too; expect this single-event hook to
+            # grow a sibling rather than treating its shape as settled.
             segment = self._build_segment(label, text, beat)
             if segment and on_segment is not None:
                 try:
@@ -313,11 +317,10 @@ class PromptBackedBeatRunner:
         every companion has spoken).
         """
         if label == "GM":
-            text = re.sub(r"^\s*GM:\s*", "", text)
-            m = self._CLOSING_PROMPT_RE.search(text)
-            if m:
-                beat.closing_prompt = m.group(0).strip(' "*_\n')
-                text = text[: m.start()].rstrip()
+            text = strip_speaker_label(text, "GM")
+            text, prompt = extract_closing_prompt(text)
+            if prompt:
+                beat.closing_prompt = prompt
             if not text:
                 return None
             segment = BeatSegment("GM", "GM", text)
@@ -466,45 +469,5 @@ class PromptBackedBeatRunner:
             process=Process.sequential,
             verbose=False,
         )
-        return self._normalize_rewrite(str(crew.kickoff()), character_name)
-
-    # Lead-in labels the editor sometimes prepends despite instructions
-    # ("Rewritten text:", "Here is the corrected version:", ...).
-    _REWRITE_LEADIN_RE = re.compile(
-        r"^(?:here(?:'s| is)[^\n:]{0,60}:|(?:the )?(?:rewritten|corrected|revised|edited|fixed)"
-        r"[^\n:]{0,40}:|rewrite:|output:)\s*\n?",
-        re.I,
-    )
-
-    @classmethod
-    def _normalize_rewrite(cls, text: str, character_name: str = "") -> str:
-        """Strip wrapper artifacts from an editor rewrite, deterministically.
-
-        The rewrite replaces in-fiction text 1:1, so it must come back shaped
-        like the original: no code fences, no "Rewritten text:" lead-ins, no
-        speaker label. Conservative on purpose — wrapping quotes are left alone
-        because a companion line legitimately IS a quoted sentence.
-        """
-        t = text.strip()
-        # ``` or ```text fences around the whole reply
-        fence = re.match(r"^```[^\n]*\n(.*?)\n?```\s*$", t, re.S)
-        if fence:
-            t = fence.group(1).strip()
-        t = cls._REWRITE_LEADIN_RE.sub("", t).strip()
-        # a leaked speaker label ("GM:" / "Mireille Vane:") at the very start
-        labels = ["GM"] + ([character_name] if character_name else [])
-        for label in labels:
-            t = re.sub(rf"^\s*{re.escape(label)}\s*:\s*", "", t)
-        return t.strip()
-
-    # The GM's closing hand-back-to-player line (in optional quotes/markdown),
-    # at the very end of its output. Wording variants come from the validator
-    # (single source). The leading wrapper only matches right after whitespace
-    # so a quote that closes the preceding dialogue isn't swallowed.
-    _CLOSING_PROMPT_RE = re.compile(
-        r'(?:(?<=\s)["*_]+|^["*_]+|(?<=\s)|^)'
-        + CLOSING_PROMPT_WORDS
-        + r'[?!.]*["*_]*\s*$',
-        re.I,
-    )
+        return normalize_rewrite(str(crew.kickoff()), character_name)
 
