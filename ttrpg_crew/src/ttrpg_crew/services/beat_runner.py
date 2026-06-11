@@ -513,17 +513,44 @@ class PromptBackedBeatRunner:
         )
         return str(crew.kickoff()).strip()
 
+    # The GM's closing hand-back-to-player line (in optional quotes/markdown),
+    # at the very end of its output. The leading wrapper only matches right
+    # after whitespace so a quote that closes the preceding dialogue isn't
+    # swallowed into the lifted prompt.
+    _CLOSING_PROMPT_RE = re.compile(
+        r'(?:(?<=\s)["*_]+|^["*_]+|(?<=\s)|^)'
+        r"(?:what (?:do|will) you do|what do you say|how do you respond"
+        r"|what'?s your (?:move|next move))"
+        r'[?!.]*["*_]*\s*$',
+        re.I,
+    )
+
     def _assemble_beat(self, outputs: list[tuple[str, str]]) -> str:
-        """Join the (possibly corrected) per-agent outputs into the beat text."""
+        """Join the (possibly corrected) per-agent outputs into the beat text.
+
+        Reading order: GM frame, then companions, then the GM's hand-back
+        prompt LAST. The GM generates "What do you do?" at the end of its own
+        output, but companions speak after it, so the prompt is lifted off the
+        GM text and re-appended after the final companion line.
+        """
         lines: list[str] = []
+        closing_prompt = ""
         for label, text in outputs:
             if label == "GM":
                 # The story-so-far is injected as "GM: ..." transcript lines and
                 # models sometimes imitate the format; strip a leaked label.
-                lines.append(re.sub(r"^\s*GM:\s*", "", text))
+                text = re.sub(r"^\s*GM:\s*", "", text)
+                m = self._CLOSING_PROMPT_RE.search(text)
+                if m:
+                    closing_prompt = m.group(0).strip(' "*_\n')
+                    text = text[: m.start()].rstrip()
+                if text:
+                    lines.append(text)
             else:
                 name = self.companion_prompt_vars.get(label, {}).get(
                     "character_name", label
                 )
                 lines.append(f"{name}: {text}")
+        if closing_prompt:
+            lines.append(closing_prompt)
         return "\n\n".join(lines)

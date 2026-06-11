@@ -153,11 +153,12 @@ def _build_flow() -> TTRPGFlow:
     # Set TTRPG_LLM_MODERATOR=1 to use the LLM manager agent instead.
     use_llm_moderator = bool(os.getenv("TTRPG_LLM_MODERATOR"))
 
-    # Companions default to direct chat completions — the architecture the old
-    # AutoGen version used (no CrewAI ReAct preamble; measured ~7x fewer
-    # completion tokens). Set TTRPG_DIRECT_COMPANIONS=0 to route them back
-    # through the CrewAI agent loop. The GM stays on CrewAI either way.
-    use_direct_companions = _env_flag("TTRPG_DIRECT_COMPANIONS", default=True)
+    # Companions run through the CrewAI agent loop by default — in play-testing
+    # it produced richer in-scene interplay than the direct path. Set
+    # TTRPG_DIRECT_COMPANIONS=1 for direct chat completions instead (no ReAct
+    # preamble; measured ~7x fewer completion tokens — the fast option). The GM
+    # is on CrewAI either way.
+    use_direct_companions = _env_flag("TTRPG_DIRECT_COMPANIONS", default=False)
 
     if debug:
         print(f"[ttrpg] direct_companions={use_direct_companions}")
@@ -201,7 +202,7 @@ def run():
     while True:
         # A cue before the (slow) model call so it's clear the GM is working,
         # not waiting on the player.
-        cue = "Weaving the opening" if first else "The world responds"
+        cue = "The party gathers" if first else "The world responds"
         print(f"\n{cue}… (a moment on a local model)\n", flush=True)
 
         beat = flow.kickoff(player_input=player_input)
