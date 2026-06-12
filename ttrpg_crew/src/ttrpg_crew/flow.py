@@ -21,6 +21,7 @@ from typing import Any
 from crewai import Crew, Process, Task
 from pydantic import ValidationError
 
+from ttrpg_crew import session_log
 from ttrpg_crew.config_loader import config_section
 from ttrpg_crew.game.intent import classify_intent
 from ttrpg_crew.game.schemas import ModeratorSelection
@@ -404,14 +405,18 @@ class TTRPGFlow:
         self.transcript.append("GM", str(result))
         self._advance_scene(str(result))
 
+        n_speakers = len(selection.selected_speakers)
+        gm_calls = 1 if selection.gm_should_frame_first else 0
+        timing = (
+            f"[timing] moderator={moderator_secs:.1f}s  "
+            f"beat={beat_secs:.1f}s ({gm_calls} GM + {n_speakers} companions)  "
+            f"total={time.perf_counter() - beat_start:.1f}s"
+        )
+        # Console only in debug, but always into the session debug log — the
+        # evaluation harness reads beat timings from there.
         if self.debug:
-            n_speakers = len(selection.selected_speakers)
-            gm_calls = 1 if selection.gm_should_frame_first else 0
-            print(
-                f"[timing] moderator={moderator_secs:.1f}s  "
-                f"beat={beat_secs:.1f}s ({gm_calls} GM + {n_speakers} companions)  "
-                f"total={time.perf_counter() - beat_start:.1f}s"
-            )
+            print(timing)
+        session_log.diag(timing)
 
         return result
 
