@@ -68,7 +68,7 @@ class TTRPGFlow:
         llm: Any = None,
         manager_llm: Any = None,
         editor_llm: Any = None,
-        human_player_name: str = "Player",
+        protagonist_name: str = "Player",
         debug: bool = False,
         use_llm_moderator: bool = False,
         use_direct_companions: bool = False,
@@ -99,12 +99,13 @@ class TTRPGFlow:
         # can't be found). Better a clear error here than a silently empty game.
         require_data_root()
 
-        # The protagonist anchors every scene. If a player character is defined,
-        # the GM refers to the player by that name (so the boundary rules and
-        # framing reference the real character, not a generic "Player").
+        # The protagonist anchors every scene. Two distinct values: the
+        # formatted character SHEET (grounding text the GM frames around) and
+        # the short NAME (transcript labels, party rosters, audit patterns,
+        # and prompt lines like 'never call them "<name>"').
         pc = load_player_character()
         self.protagonist = format_protagonist(pc)
-        self.human_player_name = (pc.get("name") or "").strip() or human_player_name
+        self.protagonist_name = (pc.get("name") or "").strip() or protagonist_name
 
         # The recurring campaign cast — injected each beat so these NPCs stay
         # consistent. Incidental NPCs are still generated from the name banks.
@@ -176,7 +177,8 @@ class TTRPGFlow:
             "party_members": ", ".join(
                 c.name for c in self.game_state.characters.values()
             ),
-            "human_player_name": self.human_player_name,
+            "protagonist": self.protagonist,
+            "protagonist_name": self.protagonist_name,
         }
 
     def _grounding_lore(self, *, player_input: str = "") -> str:
@@ -219,7 +221,7 @@ class TTRPGFlow:
                 recent_story=common_vars["recent_story"],
                 available_speakers=available_speakers,
                 scene_type=self.game_state.scene_type,
-                human_player_name=self.human_player_name,
+                protagonist_name=self.protagonist_name,
             )
 
         weights = calculate_soft_speaker_weights(
@@ -387,7 +389,7 @@ class TTRPGFlow:
             session_recap=common_vars["session_recap"],
             combat_state=common_vars["combat_state"],
             party_members=common_vars["party_members"],
-            human_player_name=self.human_player_name,
+            protagonist_name=self.protagonist_name,
             selected_speakers=selection.selected_speakers,
             gm_intent=selection.gm_intent,
             gm_should_frame_first=selection.gm_should_frame_first,
@@ -401,7 +403,7 @@ class TTRPGFlow:
         # turn (the player's action, then the beat) and the scene advances.
         self._update_turn_counts(selection.selected_speakers)
         if player_input.strip():
-            self.transcript.append(self.human_player_name, player_input.strip())
+            self.transcript.append(self.protagonist_name, player_input.strip())
         self.transcript.append("GM", str(result))
         self._advance_scene(str(result))
 

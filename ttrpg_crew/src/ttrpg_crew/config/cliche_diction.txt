@@ -9,6 +9,7 @@
 
 tapestry
 tapestries
+bioluminescent
 myriad
 delve
 delves

@@ -6,7 +6,7 @@
 # below adds state-specific pacing guidance.
 #
 # Required template variables (provide these from the flow):
-#   human_player_name, scene_context, player_input, recent_story,
+#   protagonist, scene_context, player_input, recent_story,
 #   available_speakers   -> list of companion ids that MAY speak this beat
 #   speaker_weights      -> advisory scores from
 #                           game/speaker_policy.calculate_soft_speaker_weights
@@ -16,7 +16,7 @@ _defaults:
     You are the hidden moderator. Decide who speaks the NEXT beat. You do not
     write any fiction yourself.
 
-    Human player (always the protagonist): {{ human_player_name }}
+    Human player (always the protagonist): {{ protagonist_name }}
 
     Current scene:
     {{ scene_context }}
@@ -54,13 +54,13 @@ _defaults:
     }
 
     Rules: selected_speakers must be a subset of available_speakers and must not
-    include {{ human_player_name }}. Output valid JSON parseable by
+    include {{ protagonist_name }}. Output valid JSON parseable by
     ModeratorSelection.
 
 narrative:
   description: >
     Mode: free-play narrative / exploration / social beat.
-    - GM frames the beat (gm_should_frame_first: true) UNLESS {{ human_player_name }}
+    - GM frames the beat (gm_should_frame_first: true) UNLESS {{ protagonist_name }}
       spoke directly to one companion and no scene change is needed.
     - When the player makes a decision, takes a risk, commits to a plan, or the
       party faces a choice, select 1-2 companions who would naturally react —
@@ -75,12 +75,12 @@ combat:
       keep gm_should_frame_first: true unless a companion was addressed directly.
     - Select at most 1 companion, and only action-forward support; allow 2 only
       when the battlefield genuinely calls for it.
-    - Never let companion chatter delay {{ human_player_name }}'s declared action.
+    - Never let companion chatter delay {{ protagonist_name }}'s declared action.
       Silence is a good default here.
 
 opening_scene:
   description: >
-    Mode: the session is opening and {{ human_player_name }} has not acted yet.
+    Mode: the session is opening and {{ protagonist_name }} has not acted yet.
     - The GM always frames the opening (gm_should_frame_first: true).
     - Usually select 0 companions and let the scene breathe. Choose exactly 1
       only if a single natural intro line genuinely belongs to that companion.
@@ -126,7 +126,7 @@ model_tiers:
       expected_output: >
         One JSON object: {"selected_speakers": [...], "gm_should_frame_first": bool,
         "gm_intent": "...", "reasoning": "...", "spotlight_notes": {...}}. Ids from
-        available_speakers only; never {{ human_player_name }}.
+        available_speakers only; never {{ protagonist_name }}.
 
     narrative:
       description: >

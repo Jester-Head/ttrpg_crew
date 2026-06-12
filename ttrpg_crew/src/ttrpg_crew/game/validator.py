@@ -145,15 +145,15 @@ def _companion_voice_res(name: str) -> tuple[re.Pattern, ...]:
 
 
 @lru_cache(maxsize=None)
-def _player_narrate_re(human_player_name: str) -> re.Pattern:
+def _player_narrate_re(protagonist_name: str) -> re.Pattern:
     """Compiled companion-narrates-the-player pattern; name is static per session."""
-    return re.compile(re.escape(human_player_name) + r"\s+" + _AGENCY_VERBS, re.I)
+    return re.compile(re.escape(protagonist_name) + r"\s+" + _AGENCY_VERBS, re.I)
 
 
 def audit_gm(
     text: str,
     *,
-    human_player_name: str = "Player",
+    protagonist_name: str = "Player",
     companions: tuple[str, ...] = (),
 ) -> list[Violation]:
     violations: list[Violation] = []
@@ -296,7 +296,7 @@ def normalize_rewrite(text: str, character_name: str = "") -> str:
 def audit_companion(
     text: str,
     *,
-    human_player_name: str = "Player",
+    protagonist_name: str = "Player",
     character_name: str = "",
 ) -> list[Violation]:
     violations: list[Violation] = []
@@ -339,7 +339,7 @@ def audit_companion(
         )
 
     # Companion narrating the human player in third person (dialogue is fine).
-    m = _player_narrate_re(human_player_name).search(text)
+    m = _player_narrate_re(protagonist_name).search(text)
     if m:
         violations.append(
             Violation(
@@ -589,15 +589,15 @@ def audit(
     label: str,
     text: str,
     *,
-    human_player_name: str = "Player",
+    protagonist_name: str = "Player",
     companions: tuple[str, ...] = (),
     character_name: str = "",
 ) -> list[Violation]:
     """Dispatch: GM vs companion rules, plus shared AI-style checks."""
     if label == "GM":
-        base = audit_gm(text, human_player_name=human_player_name, companions=companions)
+        base = audit_gm(text, protagonist_name=protagonist_name, companions=companions)
     else:
         base = audit_companion(
-            text, human_player_name=human_player_name, character_name=character_name
+            text, protagonist_name=protagonist_name, character_name=character_name
         )
     return base + audit_style(text)

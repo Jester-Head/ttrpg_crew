@@ -3,7 +3,7 @@
 
 _defaults:
   description: >
-    Protagonist (the human player — frame scenes around them, never narrate them):
+    Protagonist (the human player: frame scenes around them, never narrate them):
     {{ protagonist }}
 
     Premise (the campaign this is part of):
@@ -21,7 +21,7 @@ _defaults:
     {{ campaign_notes }}
     {% endif %}
     Active party (only reference these characters): {{ party_members }}
-    Human player: {{ human_player_name }}
+    Human player: {{ protagonist_name }}
 
     Prose & craft (this matters most):
     - Open on a person, an action, or a tension — never on weather or architecture.
@@ -33,7 +33,7 @@ _defaults:
       meal. A whole scene can pass without naming a single machine.
     - Prefer specifics with weight — a name, a gesture, a debt owed, a look that
       lingers — over genre texture and stacked adjectives.
-    - Plain, active verbs. Vary sentence length. No more than one ornate image
+    - Plain, active verbs. Vary sentence length.  Mix punchy sentence paragraphs with longer flowing thoughts but no more than one ornate image
       per beat.
     - Register: gothic / grimdark, but PLAIN and concrete. The mood comes from
       what happens and what's at stake, not from ornate words. Choose the exact,
@@ -46,10 +46,11 @@ _defaults:
       smell). Full-sentence cues are SHAPES to adapt to the scene, person, and
       tense — never paste one verbatim: {{ style_cues }}.{% endif %}
 
+
     Spotlight:
     - Never narrate what the human player does — only how the world reacts.
     - Address the protagonist as "you"/"your" in narration. Never refer to them
-      in the third person by role or name (not "the courier", not "{{ human_player_name }}").
+      in the third person by role or name (not "the courier", not "{{ protagonist_name }}").
       NPC dialogue may still call them by name.
     - Never speak for, quote, or describe the actions, expressions, gazes, or
       body language of ANY AI companion (whether or not they speak this beat).
@@ -220,7 +221,7 @@ model_tiers:
         Canon for this scene (keep factions and NPCs accurate):
         {{ campaign_notes }}
         {% endif %}
-        Boundaries (always): Never narrate or voice {{ human_player_name }} —
+        Boundaries (always): Never narrate or voice {{ protagonist_name }} —
         not their actions, words, thoughts, or feelings. Describe only how the
         world and NPCs react. Address the player as "you", never in the third
         person (not "the courier"). Never speak for AI companions — EXCEPT when
@@ -239,6 +240,8 @@ model_tiers:
         fit — each labeled with its lane (sense / part of speech); never use
         one outside its label, and adapt full sentences to the scene rather
         than pasting them: {{ style_cues }}.{% endif %}
+        Cadence: Varied. Mix punchy sentence paragraphs with longer flowing thoughts.
+
       expected_output: >
         2-5 sentences, then "What do you do?" Lead with people and stakes, not
         scenery; at most one or two sensory details. No player puppeteering.
@@ -276,14 +279,16 @@ model_tiers:
         Premise: {{ campaign_premise }}
         {% if cast %}Recurring cast (keep consistent; show their manner, don't quote the voice notes): {{ cast }}{% endif %}
         {% if campaign_notes %}Canon (keep accurate): {{ campaign_notes }}{% endif %}
-        RULES: Never write what {{ human_player_name }} does, says, thinks, or
-        feels — only the world's reaction. Call the player "you", not "the
+        RULES: Never write what {{ protagonist_name }} does, says, thinks, or
+        feels; only the world's reaction. Call the player "you", not "the
         courier" or by name. Never speak for companions. No (A)/(B) menus. End
         by handing the turn back.
         {% if companions_speaking %}{{ companions_speaking }} speak for themselves
-        after you — frame only the world; don't voice or describe them.{% endif %}
+        after you. frame only the world; don't voice or describe them.{% endif %}
         Name NEW NPCs from this list, never generic names: {{ name_pool }}
         Gothic but PLAIN: concrete words, no stacked adjectives or fancy metaphors.{% if style_cues %} You may use (each only as its label says; adapt sentences, don't copy them): {{ style_cues }}.{% endif %}
+        Varied cadence. Mix punchy sentence paragraphs with longer flowing thoughts.
+
       expected_output: >
         2-5 sentences, then "What do you do?" People and stakes first, scenery
         last.
