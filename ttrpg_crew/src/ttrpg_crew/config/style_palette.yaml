@@ -1,23 +1,151 @@
-# Register cues for the GM — YOUR vocabulary, not a vocabulary test.
+# Register cues for the GM — YOUR vocabulary, categorized so words land in
+# the right lane.
 #
-# This used to push rare "gem" words plus their definitions, which produced
-# slop ("dirge-like scent"). Instead, list groups of plain, interchangeable
-# words / short phrases (synonyms) you actually want in the prose. Each beat a
-# few groups are sampled and offered to the GM as options ("a / b / c") to reach
-# for WHERE THEY FIT — never forced, never stacked.
+# Each beat a few groups are sampled from every category WITH the category
+# label attached, e.g.  sound: tolling / creak;  smell: tar / river rot
+# That label is what stops a model from using a word in the wrong sense
+# (the "dirge-like scent" failure: a sound word applied to a smell).
 #
-# Schema: a `phrases:` list. Each item is either a list of synonyms for one idea,
-# or a single phrase. Keep them grounded and concrete; avoid ornate single words.
+# Structure:
+#   - Top-level keys are categories. They can nest (sensory -> the five
+#     senses); the LEAF key becomes the label the model sees, so name leaves
+#     for how the word is used.
+#   - A leaf holds a list. Each item is either a group of interchangeable
+#     synonyms ([dim, unlit, half-dark]) or a single phrase ("rain ticking
+#     on the gutters").
+#   - Empty categories inject nothing; an empty palette means the GM just
+#     writes plainly. Delete or add categories freely — nothing is hardcoded
+#     to these names.
+#   - models.yaml sampling.style_cues_per_category controls how many groups
+#     are drawn from each leaf per beat; with many filled leaves, keep it
+#     at 1-2 so the cue line stays short.
 #
-# It is intentionally EMPTY right now — with nothing here, the GM just writes
-# plainly (no pushed vocabulary). Populate it with the register you want, e.g.:
-#
-# phrases:
-#   - [dim, unlit, half-dark]              # synonyms for one idea
-#   - [grimy, soot-stained, water-stained]
-#   - "rain ticking on the gutters"        # a single concrete phrase
-#   - [mutters, grumbles, says low]
-#
-# Replace the examples above with your own. Until you do, this stays empty.
+# Live-editable: changes apply on the next beat, no restart.
 
-phrases: []
+nouns:
+  - [abomination]
+  - [deviance]
+  - [wretch]
+
+adjectives:
+  # revulsion / disgust
+  - [abhorrent, loathsome, repugnant, repulsive, revolting, sickening, vile]
+  # horror / dread
+  - [appalling, chilling, fearsome, ghastly, horrendous, horrific, horrifying, nightmarish]
+  # gore (visual violence)
+  - [gory, grisly, gruesome]
+  # death-tinged
+  - [ghoulish, macabre, morbid]
+  # evil intent
+  - [devilish, malevolent, malignant, nefarious, sinister]
+  # cruelty
+  - [hateful, savage, vicious]
+  # wrongness / deformity
+  - [demented, deviant, grotesque, monstrous, twisted, unnatural]
+  # temperament / mood (people, not places)
+  - [brooding, grim, irascible]
+
+verbs:
+  - [maim]
+  - [torment]
+
+# Full-sentence inspiration, laned like the word cues. The GM is told these
+# are SHAPES to adapt (person/tense/details), never to paste verbatim.
+# Keep these impersonal (no "you"/"your"): second-person phrases prime the GM
+# to narrate the player's sensations — the player_puppeteering failure. Those
+# live in style_palette_reserved.yaml for a future NPC/companion cue system.
+phrases:
+  sight phrases:
+    - "Shadows danced on the walls."
+    - "The darkness seemed to breathe."
+    - "Unseen eyes watched from the shadows."
+    - "The light flickered, then died."
+    - "A figure loomed in the darkness."
+    - "Eyes, glowing with malice, watched."
+    - "A ghastly visage appeared in the mirror."
+    - "A grotesque shadow slithered across the wall."
+    - "The darkness devoured all light."
+    - "A foreboding figure stood at the edge of sight."
+    - "A ghostly pallor enveloped the room."
+    - "The moon cast a baleful glow."
+    - "An oppressive darkness smothered all light."
+    - "Claw marks scarred the old wood."
+    - "A cadaverous figure approached, limping."
+    - "A grotesque mockery of life moved in the shadows."
+    - "A spectral light flickered in the distance."
+    - "The darkness seemed to pulsate with malice."
+    - "The light dimmed as if swallowed by darkness."
+    - "Eyes watched from the darkness."
+    - "Shadows moved of their own accord."
+    - "A haunting figure stood at the edge of vision."
+    - "The ground was soaked with ancient blood."
+    - "A ghostly figure appeared in the mirror."
+    - "The light flickered as if signaling the presence of spirits."
+    - "A grotesque shadow stretched across the wall."
+  sound phrases:
+    - "The silence screamed louder than any cry."
+    - "Eerie whispers filled the room."
+    - "The wind howled like the cries of the damned."
+    - "A scream shattered the silence."
+    - "The floorboards groaned with secrets."
+    - "A sinister laugh echoed in the distance."
+    - "A death-like chortle originated from under the bed."
+    - "The door creaked open by unseen hands."
+    - "A muffled cry came from nowhere."
+    - "The sound of dragging feet approached."
+    - "A blood-curdling shriek pierced the night."
+    - "The echo of footsteps in the abandoned hall."
+    - "The very walls seemed to moan in despair."
+    - "A demonic chuckle resonated in the gloom."
+    - "A sepulchral voice spoke from the darkness."
+    - "Fingers of terror drummed a rhythm of death outside the door."
+    - "An ungodly shriek echoed through the night."
+    - "A bone-chilling whisper in the darkness."
+    - "An otherworldly scream shattered the silence."
+    - "The echo of footsteps followed, but no one was there."
+    - "A demonic laugh echoed in the empty room."
+    - "A haunting melody played from nowhere."
+    - "A sinister whisper called out from the darkness."
+  smell phrases:
+    - "The stench of death pervaded the air."
+    - "The scent of decay was overwhelming."
+  touch phrases:
+    - "A shiver ran through the air."
+    - "The room grew inexplicably colder."
+    - "A phantom's touch, cold as ice."
+    - "An unseen force gripped with icy fingers."
+    - "The air turned cold with the presence of the unknown."
+  dread phrases:
+    - "A presence felt, yet unseen."
+    - "The air was thick with unease."
+    - "The night was alive with unknown horrors."
+    - "A sense of impending doom hung heavily."
+    - "An unspeakable horror awaited in the shadows."
+    - "The walls seemed to close in."
+    - "An inescapable sense of being followed."
+    - "A pall of dread settled over everything."
+    - "An eerie calm before the storm."
+    - "An ancient evil stirred in the depths."
+    - "The air crackled with a sinister energy."
+    - "The night whispered secrets of dread."
+    - "The fabric of reality seemed to tear."
+    - "An unspeakable entity lurked in the dark."
+    - "The night air was heavy with foreboding."
+    - "The stillness was unnaturally pervasive."
+    - "The clock ticked towards an unknown doom."
+    - "A lurking dread filled the empty streets."
+    - "An echo of a forgotten nightmare resurfaced."
+    - "Unseen terrors lurked in the shadows."
+    - "The air was filled with a palpable dread."
+    - "A sense of doom hung heavily in the air."
+    - "The walls dripped with an indescribable horror."
+    - "A cursed object emanated malevolence."
+
+sensory:
+  sight:
+    - [lurid]
+  sound: []
+  smell:
+    - [fetid]
+  taste: []
+  touch: []

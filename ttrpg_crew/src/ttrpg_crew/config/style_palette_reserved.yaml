@@ -1,0 +1,29 @@
+# Reserved style phrases — NOT read by the engine.
+#
+# Second-person experience phrases ("a chill crept up your spine") pulled from
+# the active GM palette: they model narrating the player's sensations, which
+# is exactly the player_puppeteering class the auditor polices, so the GM must
+# not be primed with them. Banked here for a later idea: cues for NPCs or AI
+# companions, re-personed per use (first person for a companion, third for an
+# NPC). These were normalized from first person (my -> your) on import.
+
+phrases:
+  - "Something lurked in the corner of your eye."
+  - "A macabre scene unfolded before your eyes."
+  - "An apparition materialized before your eyes."
+  - "Your breath fogged in the icy air."
+  - "A voice, cold as death, whispered your name."
+  - "The sound of your heartbeat filled the silence."
+  - "The shadows seemed to whisper your name."
+  - "A distant howl sent shivers down your spine."
+  - "Death itself whispered into your ears."
+  - "A chill crept up your spine."
+  - "Blood froze in your veins."
+  - "Cold fingers of fear gripped your heart."
+  - "An icy grip seized your soul."
+  - "An inexplicable dread overcame you."
+  - "Visions of terror haunted your dreams."
+  - "A chilling realization dawned upon you."
+  - "The abyss stared back into you."
+  - "An indescribable fear gnawed at your mind."
+  - "He stared at you from the depths of terror."
