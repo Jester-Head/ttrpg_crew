@@ -79,16 +79,3 @@ As an action, a character can consume a stabilized Tier 1 memory (Tinctura).
 - **The Catch**: Because consuming memory in the heat of the moment is jarring, the character must roll a Duality Die. If Fear is the higher result, the GM gains 1 Fear as the memory temporarily distracts or disorients them.
 
 *(See Appendix B, Feedback Checklist for full list of pending mechanics.)*
-
----
-
-**Document Control:**
-- Version: 0.2
-- Naming Convention: Alchemical v3.0
-- Source: kavath_lore_v2 (12, 07_adapted); formerly `07_ancestries_communities_world_expansion.md` (Part 9).
-- Dependencies: Faction Reference v1.2, Memory Currency System v3.1, Ancestries & Communities v1.0, Daggerheart SRD
-- **v0.2 Changes:** Added Dreg Condition 3-stage mechanic (Fraying → Eroding → Calcined) with triggers, effects, recovery, and design notes. Listed existing conceptual mechanics pending formal write-up.
-
----
-
-*End of Custom Daggerheart Mechanics Reference Document*

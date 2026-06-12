@@ -57,23 +57,4 @@ Her position as Fellow in the Clade's Scholar track, her willingness to authoriz
 #### Historical / Other
 - **Lady Nyxentia**: Mistress of Discord worshiped by the Cult of the Fractured Mirror.
 
----
 
-### Open Development Items
-
-- Faction leaders for all three factions (full profiles)
-- Key NPCs for each district/neighborhood
-- Antagonists beyond the Cult (which is destroyed)
-- The Ferryman-Beast (mentioned in old glossary, never detailed)
-
----
-
-**Document Control:**
-- Version: 0.2
-- Naming Convention: Alchemical v3.0
-- Dependencies: Faction Reference v1.2, Memory Economy v1.1
-- **v0.2 Changes:** Added Clara Moree canonical backstory, Hollow Flame NPCs from Factions doc, updated Jian Veil reference to Kavath.
-
----
-
-*End of Key NPCs & Figures Reference Document*

@@ -155,22 +155,3 @@
 
 ---
 
-## Deprecated Terminology
-
-The following terms from the v1 glossary have been formally replaced:
-
-| Deprecated Term | Replaced By | Notes |
-|---|---|---|
-| Taper | Volatilis | Tier 1 memory |
-| Ember | Solvate | Tier 2 memory |
-| Flame | Amalga | Tier 3 memory |
-| Blaze | Precipia | Tier 4 memory |
-| Inferno | Tinctura | Tier 5 memory |
-| True Name | Quintessa | Tier 6 memory |
-| *(no equivalent)* | Athanor | Tier 7 (new) |
-| Hollowing | Calcination | Identity extraction process (not the Dreg Condition stage; Stage 2 was renamed to **Eroding**) |
-| Gutterborn | Dreg / Husk | Person whose Quintessa was extracted |
-| Weaver's Conclave | Spiritus Conclave | Artisan faction |
-| Vestigium Flames | Caput Mortuum | Leached memory fuel, now designated by the alchemical term for distillation waste |
-| Heart of the Titan | The Marrow Vault | Deepest Aethos crypt, renamed to align with Aethos anatomical motif |
-| Fluctuat nec Mergitur | Adversa non frangunt | Arche's motto, replaced with original for publication safety |
