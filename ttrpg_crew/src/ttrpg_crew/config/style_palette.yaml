@@ -21,30 +21,41 @@
 #     at 1-2 so the cue line stays short.
 #
 # Live-editable: changes apply on the next beat, no restart.
-#
-# Examples of the shapes (replace with your own; these are placeholders, not
-# suggestions):
-#   adjectives:
-#     - [dim, unlit, half-dark]
-#   verbs:
-#     - [mutters, grumbles, says low]
-#   phrases:
-#     - "rain ticking on the gutters"
-#   sensory:
-#     sound:
-#       - [tolling, creak of ropes]
-#     smell:
-#       - [tar, river rot]
 
-adjectives: []
+nouns:
+  - [abomination]
+  - [deviance]
+  - [wretch]
 
-verbs: []
+adjectives:
+  # revulsion / disgust
+  - [abhorrent, loathsome, repugnant, repulsive, revolting, sickening, vile]
+  # horror / dread
+  - [appalling, chilling, fearsome, ghastly, horrendous, horrific, horrifying, nightmarish]
+  # gore (visual violence)
+  - [gory, grisly, gruesome]
+  # death-tinged
+  - [ghoulish, macabre, morbid]
+  # evil intent
+  - [devilish, malevolent, malignant, nefarious, sinister]
+  # cruelty
+  - [hateful, savage, vicious]
+  # wrongness / deformity
+  - [demented, deviant, grotesque, monstrous, twisted, unnatural]
+  # temperament / mood (people, not places)
+  - [brooding, grim, irascible]
+
+verbs:
+  - [maim]
+  - [torment]
 
 phrases: []
 
 sensory:
-  sight: []
+  sight:
+    - [lurid]
   sound: []
-  smell: []
+  smell:
+    - [fetid]
   taste: []
   touch: []
