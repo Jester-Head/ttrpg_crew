@@ -9,20 +9,8 @@
 # then these are GM-side material for introducing new party members.
 
 events:
-  tavern_stranger:
-    character_key: "whisper"
-    introduction: |
-      A small figure detaches from the shadows near the bar. Faerie wings
-      catch the dim censer-glow as she approaches your table.
-
-      "Couldn't help but overhear you're heading into Siderian Clade territory.
-      I know those refineries better than most - used to... liberate things
-      from them. Name's Whisper. Might be I could help, if you're interested
-      in someone who knows which shadows are safe."
-    recruitment_condition: "Invite Whisper to join the party"
-
   rescued_prisoner:
-    character_key: "cogs"
+    character_key: "joroic"
     introduction: |
       The Dwarf you freed from the refinery cell blinks in the dim light,
       adjusting spectacles held together with wire and hope.
@@ -34,10 +22,10 @@ events:
       He straightens, a desperate determination in his eyes.
 
       "Let me come with you. I can help."
-    recruitment_condition: "Accept Cogs into the party"
+    recruitment_condition: "Accept Joroic into the party"
 
   battlefield_survivor:
-    character_key: "theron"
+    character_key: "roland"
     introduction: |
       The armored figure rises from the carnage, shield dented but intact.
       He surveys the battlefield with the cold assessment of a veteran.
@@ -46,33 +34,32 @@ events:
       is clipped, military. "They didn't make it. I... couldn't protect them."
 
       He meets your eyes. "I won't make that mistake again. If you'll have me."
-    recruitment_condition: "Accept Theron into the party"
+    recruitment_condition: "Accept Roland into the party"
 
   noble_exile:
-    character_key: "caelum"
+    character_key: "nerdrieth"
     introduction: |
       The Elf's fine clothes are travel-worn, but his bearing remains noble.
-      He offers a self-deprecating smile as he approaches.
+      He offers a smile as he approaches.
 
-      "I'm afraid I find myself... between situations. My family and I have
+      "I'm afraid I find myself between situations. My family and I have
       had a falling out. Permanent, I hope." A shadow crosses his face.
 
       "I have some skill with words and music. And I know how the Old Blood
-      think - useful when navigating their schemes. Perhaps we could help
-      each other?"
-    recruitment_condition: "Accept Caelum into the party"
+      think. Perhaps we could help each other?"
+    recruitment_condition: "Accept Nerdrieth into the party"
 
   memory_wanderer:
-    character_key: "echo"
+    character_key: "zizi"
     introduction: |
       The figure sits alone, staring at nothing. When they speak, it's as
       if addressing someone who isn't there.
 
-      "Echo remembers this place. Or... someone who was Echo did. The memories
+      "Zizi remembers this place. Or... someone who was Zizi did. The memories
       are borrowed now. Fragments of a life traded away."
 
       They turn, and their eyes hold depths of sorrow and strange wisdom.
 
-      "Echo seeks purpose. Perhaps walking with others will help Echo find
+      "Zizi seeks purpose. Perhaps walking with others will help Zizi find
       what was lost. Or become something new."
-    recruitment_condition: "Accept Echo into the party"
+    recruitment_condition: "Accept Zizi into the party"
