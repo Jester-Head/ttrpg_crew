@@ -100,11 +100,13 @@ _CHUNK_OVERLAP = int(_rc.get("chunk_overlap", 150))
 # Direct injection (no embeddings)
 # --------------------------------------------------------------------------- #
 def load_premise() -> str:
-    """Return the campaign premise text, or '' if the file is empty/missing."""
-    path = _KNOWLEDGE_DIR / "campaign" / "premise.md"
-    if not path.is_file():
-        return ""
-    return path.read_text(encoding="utf-8").strip()
+    """Return the campaign premise text from the campaign frame, or ''.
+
+    The premise lives inside the campaign frame (frame.yaml `premise:`), not a
+    separate file — mirroring the old version, where the campaign details
+    carried the premise.
+    """
+    return str(load_campaign_frame().get("premise") or "").strip()
 
 
 def load_latest_session_recap() -> str:
