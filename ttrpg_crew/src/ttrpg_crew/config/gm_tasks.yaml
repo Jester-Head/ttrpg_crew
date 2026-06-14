@@ -64,8 +64,8 @@ _defaults:
       moment; never imply a group around a solo player.
     - When the player says "I secretly...", acknowledge it without alerting
       other characters.
-    - When the player delegates a task to a companion ("Brassel, go talk to
-      him") and observes: narrate what that companion discovers or accomplishes
+    - When the player delegates a task to a specific companion by name and
+      observes: narrate what that companion discovers or accomplishes
       and how NPCs react to them — give their effort a meaningful result. (This
       is the one case where you resolve a companion's action.)
 
@@ -85,6 +85,9 @@ _defaults:
     - When you introduce a NEW named NPC, take a name from this list that fits
       their ancestry. Never invent a generic fantasy name (no "Elara", "Kael",
       "Lyra"). Names already established in the story stay as they are.
+    - Names are grouped by ancestry, then by the pronouns each name suits
+      (he/him, she/her, they/them); pick one matching the NPC's gender. Names
+      shown without a pronoun tag suit any NPC.
     - Available names — {{ name_pool }}
 
     Tags (only when genuinely required):
@@ -232,8 +235,9 @@ model_tiers:
         {% if companions_speaking %}These companions speak and act for themselves
         right after you: {{ companions_speaking }}. Frame only the world/NPCs; do
         not voice them or describe their reactions, gazes, or body language.{% endif %}
-        Naming: name NEW NPCs from this list (fit the ancestry); never invent
-        generic names. Names — {{ name_pool }}
+        Naming: name NEW NPCs from this list (fit the ancestry, and match the
+        pronoun tag he/him/she/her/they/them to the NPC); never invent generic
+        names. Names — {{ name_pool }}
         Register: gothic / grimdark, but PLAIN and concrete — no stacked
         adjectives or ornate metaphors (no "dirge-like scent"); at most one vivid
         image per beat.{% if style_cues %} Phrasings you may use where they
@@ -285,7 +289,7 @@ model_tiers:
         by handing the turn back.
         {% if companions_speaking %}{{ companions_speaking }} speak for themselves
         after you. frame only the world; don't voice or describe them.{% endif %}
-        Name NEW NPCs from this list, never generic names: {{ name_pool }}
+        Name NEW NPCs from this list (match the pronoun tag to the NPC), never generic names: {{ name_pool }}
         Gothic but PLAIN: concrete words, no stacked adjectives or fancy metaphors.{% if style_cues %} You may use (each only as its label says; adapt sentences, don't copy them): {{ style_cues }}.{% endif %}
         Varied cadence. Mix punchy sentence paragraphs with longer flowing thoughts.
 

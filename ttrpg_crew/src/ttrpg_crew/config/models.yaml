@@ -82,7 +82,7 @@ audit:
 
 # Per-beat injection counts (services/knowledge.py). Read live.
 sampling:
-  names_per_ancestry: 2      # NPC names sampled per ancestry into the GM prompt
+  names_per_ancestry: 2      # NPC names sampled per gender group per ancestry into the GM prompt
   style_cues_per_category: 2 # gothic-palette words sampled per category
 
 # Per-beat context injection (flow.py). Read live.

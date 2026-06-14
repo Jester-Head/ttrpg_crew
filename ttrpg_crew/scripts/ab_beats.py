@@ -34,14 +34,16 @@ from dotenv import load_dotenv
 # should pull in companions, a direct address to a named companion, and a
 # higher-tension action. Inputs are deliberately fiction-agnostic (no assumed
 # NPCs or staging) because each run's opening differs — a canned input that
-# contradicts the live fiction confuses the GM. Edit freely; keep it identical
-# across the runs you're comparing.
-SCENARIO = [
-    "",  # opening: GM frames the scene, player has not acted yet
-    "I take the vial and ask what the Conclave will want in return.",
-    "I ask Mireille whether the canals are safe to move through tonight.",
-    "I refuse, hand the vial back, and turn to leave.",
-]
+# contradicts the live fiction confuses the GM. The direct-address beat fills in
+# a real companion from the live roster, so it never names someone who isn't in
+# the party. Edit freely; keep it identical across the runs you're comparing.
+def build_scenario(companion_name: str) -> list[str]:
+    return [
+        "",  # opening: GM frames the scene, player has not acted yet
+        "I take the vial and ask what the Conclave will want in return.",
+        f"I ask {companion_name} whether the canals are safe to move through tonight.",
+        "I refuse, hand the vial back, and turn to leave.",
+    ]
 
 
 def main() -> None:
@@ -56,7 +58,12 @@ def main() -> None:
         f"direct_companions={flow.use_direct_companions}\n"
     )
 
-    for i, player_input in enumerate(SCENARIO):
+    companion_name = next(
+        (c.name for c in flow.game_state.characters.values()), "my companion"
+    )
+    scenario = build_scenario(companion_name)
+
+    for i, player_input in enumerate(scenario):
         header = "OPENING" if (i == 0 and not player_input) else f"INPUT: {player_input}"
         print("\n" + "=" * 72)
         print(f"BEAT {i + 1}  {header}")

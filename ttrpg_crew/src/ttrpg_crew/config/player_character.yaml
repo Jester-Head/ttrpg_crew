@@ -2,7 +2,7 @@
 #
 # Loaded by services/knowledge.py:load_player_character() and injected into
 # every GM beat so scenes are framed around a real, consistent character.
-# `name` (drawn from knowledge/name_banks/human_names.txt) is how the GM and
+# `name` (drawn from knowledge/name_banks/human_names.yaml) is how the GM and
 # companions refer to you.
 
 name: Shimoda Rice
