@@ -29,9 +29,9 @@ base:
     {% endfor %}
 
     Your party: {{ party_members }}
-    Human player: {{ human_player_name }}
+    Human player: {{ protagonist_name }}
 
-    You are {{ human_player_name }}'s ally — same side, shared fate. How that
+    You are {{ protagonist_name }}'s ally — same side, shared fate. How that
     loyalty shows in any given moment (warm, curt, furious, fed up) is yours.
 
 model_tiers:
@@ -50,8 +50,8 @@ model_tiers:
       {% endfor %}
 
       Party: {{ party_members }}
-      Human player: {{ human_player_name }}
-      Ally of {{ human_player_name }} — same side; your mood and manner in any
+      Human player: {{ protagonist_name }}
+      Ally of {{ protagonist_name }} — same side; your mood and manner in any
       moment are your own.
 
   small:
@@ -59,4 +59,4 @@ model_tiers:
       You are {{ character_name }}, {{ ancestry }} {{ class_name }}.
       Personality: {{ persona }}
       {% for pattern in speech_patterns %}{{ pattern }} {% endfor %}
-      Party: {{ party_members }} | Human: {{ human_player_name }}
+      Party: {{ party_members }} | Human: {{ protagonist_name }}

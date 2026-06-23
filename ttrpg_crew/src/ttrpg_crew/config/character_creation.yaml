@@ -1,0 +1,182 @@
+# Character creation options and prompts.
+#
+# Ported from the previous (AutoGen) version's data/character_creation.yaml.
+# The old `factions:` list (Vestige Assembly, Eternal Ember, Cognition
+# Collective, etc.) predated the current lore entirely and has been replaced
+# with the four factions of current canon. Ancestries extended to cover every
+# ancestry the name banks support. Not yet wired into code — an interactive
+# character-creation flow is future work; until then this documents the
+# option space the protagonist sheet (knowledge/protagonist.yaml) draws from.
+
+classes:
+  - key: bard
+    name: Bard
+    description: "Charismatic performer, inspires allies"
+  - key: druid
+    name: Druid
+    description: "Nature magic, shapeshifting"
+  - key: guardian
+    name: Guardian
+    description: "Defensive tank, protects allies"
+  - key: ranger
+    name: Ranger
+    description: "Ranged combat, tracking"
+  - key: rogue
+    name: Rogue
+    description: "Stealth, precision strikes"
+  - key: seraph
+    name: Seraph
+    description: "Divine magic, healing"
+  - key: sorcerer
+    name: Sorcerer
+    description: "Raw magical power"
+  - key: warrior
+    name: Warrior
+    description: "Martial combat expert"
+  - key: wizard
+    name: Wizard
+    description: "Studied arcane magic"
+
+ancestries:
+  - key: human
+    name: Human
+    description: "Adaptable, diverse"
+  - key: elf
+    name: Elf
+    description: "Graceful, long-lived"
+  - key: dwarf
+    name: Dwarf
+    description: "Sturdy, craftsmen"
+  - key: faerie
+    name: Faerie
+    description: "Magical, mischievous"
+  - key: orc
+    name: Orc
+    description: "Powerful, proud"
+  - key: halfling
+    name: Halfling
+    description: "Lucky, nimble"
+  - key: katari
+    name: Katari
+    description: "Feline, agile"
+  - key: drakona
+    name: Drakona
+    description: "Draconic heritage"
+  - key: fungril
+    name: Fungril
+    description: "Mushroom folk"
+  - key: clank
+    name: Clank
+    description: "Sentient constructs"
+  - key: galapa
+    name: Galapa
+    description: "Shelled, patient"
+  - key: giant
+    name: Giant
+    description: "Towering, strong"
+  - key: goblin
+    name: Goblin
+    description: "Quick, keen-eared"
+  - key: infernis
+    name: Infernis
+    description: "Fiendish heritage"
+  - key: ribbet
+    name: Ribbet
+    description: "Amphibious folk"
+  - key: simiah
+    name: Simiah
+    description: "Simian, nimble climbers"
+
+communities:
+  - key: highborne
+    name: Highborne
+    description: "Nobility, privilege"
+  - key: loreborne
+    name: Loreborne
+    description: "Scholarship, archives"
+  - key: orderborne
+    name: Orderborne
+    description: "Military, structure"
+  - key: ridgeborne
+    name: Ridgeborne
+    description: "Mountain dwellers"
+  - key: seaborne
+    name: Seaborne
+    description: "Coastal, traders"
+  - key: slyborne
+    name: Slyborne
+    description: "Underworld, survival"
+  - key: underborne
+    name: Underborne
+    description: "Tunnels, secrets"
+  - key: wanderborne
+    name: Wanderborne
+    description: "Nomads, travelers"
+  - key: wildborne
+    name: Wildborne
+    description: "Untamed lands"
+
+personality_prompts:
+  - field: personality_strength
+    prompt: "Core strength (brave, clever, kind, etc.):"
+  - field: personality_flaw
+    prompt: "Main flaw (hot-headed, naive, secretive, etc.):"
+  - field: desire
+    prompt: "What do you want most?"
+  - field: fear
+    prompt: "What do you fear most?"
+  - field: speech_style
+    prompt: "How do you speak? (formal, slang, quiet, etc.):"
+  - field: quirk
+    prompt: "A quirk or habit:"
+
+# Current canon factions (the old list — Vestige Assembly, Weaver's Conclave,
+# Eternal Ember, Cognition Collective — predates the lore rewrite).
+factions:
+  - key: spiritus_conclave
+    name: Spiritus Conclave
+    description: "Religious order ministering to the dead and brokering memory as sacrament"
+  - key: old_blood_council
+    name: Old Blood Council
+    description: "Aristocratic families hoarding ancestral memories in private vaults"
+  - key: siderian_clade
+    name: Siderian Clade
+    description: "Industrial power refining memory into fuel and product"
+  - key: hollow_flame
+    name: The Hollow Flame
+    description: "Hidden movement working against the memory trade from below"
+
+kavath_hooks:
+  "1":
+    description: "Sold too many memories - can't remember childhood"
+    text: "You sold too many memories and can't remember your childhood"
+  "2":
+    description: "Carry a debt in memories you can never repay"
+    text: "You carry a debt in memories that you can never repay"
+  "3":
+    # TODO(canon): "True Name" predates the current lore — rule whether True
+    # Names exist, or remap to a stolen/extracted Quintessa.
+    description: "Family member's True Name was stolen"
+    text: "A family member's True Name was stolen"
+  "4":
+    description: "Witnessed something terrible at a memory refinery"
+    text: "You witnessed something terrible at a Siderian Clade refinery"
+  "5":
+    description: "The Veil speaks to you in dreams"
+    text: "The Veil speaks to you in dreams"
+  "6":
+    description: "Being hunted by a faction"
+    text: "You're being hunted by a faction"
+    requires_input: "faction"
+  "7":
+    description: "Other (describe)"
+    requires_input: "custom"
+
+default_values:
+  personality_strength: "Determined"
+  personality_flaw: "Stubborn"
+  desire: "Adventure"
+  fear: "Failure"
+  speech_style: "Direct"
+  quirk: "Always ready for trouble"
+  kavath_hook: "Seeking answers in Gloamvere's shadows"

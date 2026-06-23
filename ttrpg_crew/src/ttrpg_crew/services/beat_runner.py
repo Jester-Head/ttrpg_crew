@@ -68,7 +68,7 @@ class PromptBackedBeatRunner:
         session_recap: str,
         combat_state: str,
         party_members: str,
-        human_player_name: str,
+        protagonist_name: str = "Player",
         selected_speakers: list[str],
         gm_intent: str,
         gm_should_frame_first: bool = True,
@@ -116,7 +116,7 @@ class PromptBackedBeatRunner:
             "session_recap": session_recap,
             "combat_state": combat_state,
             "party_members": party_members,
-            "human_player_name": human_player_name,
+            "protagonist_name": protagonist_name,
             "selected_speakers": selected_speakers,
             "companions_speaking": companions_speaking,
             "gm_intent": gm_intent,
@@ -164,7 +164,7 @@ class PromptBackedBeatRunner:
                 merged_vars = {
                     **common_vars,
                     **self.companion_prompt_vars[speaker_id],
-                    "party_members": self._party_for(speaker_id, human_player_name),
+                    "party_members": self._party_for(speaker_id, protagonist_name),
                     "beat_directives": self._beat_directives(
                         speaker_id, beat_intent, selected_speakers, companion_said,
                         player_input=player_input,
@@ -198,7 +198,7 @@ class PromptBackedBeatRunner:
                 companion_vars = {
                     **common_vars,
                     **self.companion_prompt_vars[speaker_id],
-                    "party_members": self._party_for(speaker_id, human_player_name),
+                    "party_members": self._party_for(speaker_id, protagonist_name),
                     # Tasks are built before any output exists, so this carries
                     # intent + who else speaks + anti-echo (no said-lines yet;
                     # those arrive at runtime via the task context).
@@ -263,7 +263,7 @@ class PromptBackedBeatRunner:
             violations = audit(
                 label,
                 text,
-                human_player_name=human_player_name,
+                protagonist_name=protagonist_name,
                 companions=companion_names,
                 character_name=""
                 if label == "GM"
@@ -279,9 +279,9 @@ class PromptBackedBeatRunner:
                 self._diag(f"[audit] {label}: {v.rule} — {v.detail}")
 
             if violations and self.auto_retry:
-                edited = self._edit_output(label, text, violations, human_player_name)
+                edited = self._edit_output(label, text, violations, protagonist_name)
                 remaining = audit(
-                    label, edited, human_player_name=human_player_name,
+                    label, edited, protagonist_name=protagonist_name,
                     companions=companion_names,
                 )
                 if len(remaining) < len(violations):
@@ -359,7 +359,7 @@ class PromptBackedBeatRunner:
             f"requests={reqs} vs tasks={task_count}  {ct / gen_secs:.1f} completion tok/s"
         )
 
-    def _party_for(self, speaker_id: str, human_player_name: str) -> str:
+    def _party_for(self, speaker_id: str, protagonist_name: str) -> str:
         """The party roster from this companion's seat: the human + the OTHER
         companions. Excluding themselves stops third-person self-references
         (ported from the old version, which did the same)."""
@@ -368,7 +368,7 @@ class PromptBackedBeatRunner:
             for sid, v in self.companion_prompt_vars.items()
             if sid != speaker_id
         ]
-        return ", ".join([human_player_name] + others)
+        return ", ".join([protagonist_name] + others)
 
     def _beat_directives(
         self,
@@ -419,7 +419,7 @@ class PromptBackedBeatRunner:
         return "\n".join(lines) if len(lines) > 1 else ""
 
     def _edit_output(
-        self, label: str, flagged_text: str, violations: list, human_player_name: str
+        self, label: str, flagged_text: str, violations: list, protagonist_name: str
     ) -> str:
         """Run the dedicated editor agent to fix flagged output, minimally."""
         is_gm = label == "GM"
@@ -436,10 +436,23 @@ class PromptBackedBeatRunner:
                 line += f" → {v.suggestion}"
             fix_lines.append(line)
 
+        # NPCs (campaign cast) are GM-played and distinct from companions: the
+        # editor's examples use a real NPC name so the boundary reads concrete.
+        from ttrpg_crew.services.knowledge import load_campaign_cast
+
+        cast = load_campaign_cast()
+        npc_name = str(cast[0].get("name")) if cast else "the NPC"
+        companion_example = next(
+            (str(v.get("character_name")) for v in self.companion_prompt_vars.values()
+             if v.get("character_name")),
+            "the companion",
+        )
         editor_vars = {
             "role_kind": "GM" if is_gm else "companion",
             "character_name": character_name or "the companion",
-            "human_player_name": human_player_name,
+            "npc_name": npc_name,
+            "companion_example": companion_example,
+            "protagonist_name": protagonist_name,
             "violations": "\n".join(fix_lines),
             "flagged_text": flagged_text,
             "voice_examples": voice_examples,

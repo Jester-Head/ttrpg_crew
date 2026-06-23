@@ -1,0 +1,65 @@
+# Companion recruitment events.
+#
+# Ported from the previous (AutoGen) version's data/recruitment_events.yaml.
+# Each event introduces one benched companion from config/characters.yaml
+# (character_key matches the roster key); meeting the recruitment_condition
+# means flipping that companion to enabled: true. Prose modernized to current
+# canon (Iron Covenant -> Siderian Clade, Vestigium light -> censer-glow).
+# Not yet wired into code — a recruitment/event system is future work; until
+# then these are GM-side material for introducing new party members.
+
+events:
+  rescued_prisoner:
+    character_key: "joroic"
+    introduction: |
+      The Dwarf you freed from the refinery cell blinks in the dim light,
+      adjusting spectacles held together with wire and hope.
+
+      "I... I can't go back to them. They'll burn everything I know to fuel
+      their engines. But I have schematics - designs they'd kill to recover.
+      I'm no fighter, but I know their machines. Every weakness. Every flaw."
+
+      He straightens, a desperate determination in his eyes.
+
+      "Let me come with you. I can help."
+    recruitment_condition: "Accept Joroic into the party"
+
+  battlefield_survivor:
+    character_key: "roland"
+    introduction: |
+      The armored figure rises from the carnage, shield dented but intact.
+      He surveys the battlefield with the cold assessment of a veteran.
+
+      "You fought well. Better than the last group I ran with." His voice
+      is clipped, military. "They didn't make it. I... couldn't protect them."
+
+      He meets your eyes. "I won't make that mistake again. If you'll have me."
+    recruitment_condition: "Accept Roland into the party"
+
+  noble_exile:
+    character_key: "nerdrieth"
+    introduction: |
+      The Elf's fine clothes are travel-worn, but his bearing remains noble.
+      He offers a smile as he approaches.
+
+      "I'm afraid I find myself between situations. My family and I have
+      had a falling out. Permanent, I hope." A shadow crosses his face.
+
+      "I have some skill with words and music. And I know how the Old Blood
+      think. Perhaps we could help each other?"
+    recruitment_condition: "Accept Nerdrieth into the party"
+
+  memory_wanderer:
+    character_key: "zizi"
+    introduction: |
+      The figure sits alone, staring at nothing. When they speak, it's as
+      if addressing someone who isn't there.
+
+      "Zizi remembers this place. Or... someone who was Zizi did. The memories
+      are borrowed now. Fragments of a life traded away."
+
+      They turn, and their eyes hold depths of sorrow and strange wisdom.
+
+      "Zizi seeks purpose. Perhaps walking with others will help Zizi find
+      what was lost. Or become something new."
+    recruitment_condition: "Accept Zizi into the party"

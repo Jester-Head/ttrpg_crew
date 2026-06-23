@@ -1,6 +1,7 @@
 # Editor task — rewrite one flagged output, applying only the listed fixes.
 # Loaded by beat_runner with task_key "base". Variables provided there:
-#   role_kind (GM|companion), character_name, human_player_name,
+#   role_kind (GM|companion), character_name, protagonist_name, npc_name,
+#   companion_example,
 #   violations (the fix list), flagged_text (the text to rewrite).
 
 base:
@@ -21,9 +22,10 @@ base:
       Keep the SAME length and shape as the original text — fix only the
       flagged problems, do not compress or expand it. Never scene description,
       never their own name in third person, never "What do you do?".
-    - Never speak, act, or decide for {{ human_player_name }}.
-    - Keep the gothic register, but never stack adjectives or use formulaic
-      "a ___ of" phrasing.
+    - Never speak, act, or decide for {{ protagonist_name }}.
+    - Keep the gothic register, but never stack adjectives. Stick to one strong adjective or detail. 
+    - Never use predictable triplets (three parallel items in a row).
+    - Never use formulaic "a ___ of" phrasing.
     {% if voice_examples %}
     Preserve {{ character_name }}'s voice. They sound like this (match the tone
     and brevity; never copy these word-for-word):
@@ -33,8 +35,9 @@ base:
     - Companion self-narration. BAD: (I lean in, my voice dropping to a hum, my
       eyes searching yours.)  GOOD: I lean in. "Easy now. We've carried worse
       than this."
-    - GM voicing a companion. BAD: Brassel leans in. "We should hurry," he warns.
-      GOOD: Brassel waits at your shoulder.
+    - GM voicing a companion (NPCs like {{ npc_name }} are the GM's to play;
+      companions are NOT). BAD: {{ companion_example }} leans in. "We should
+      hurry," he warns.  GOOD: {{ npc_name }} watches you from the bar.
     - GM narrating the player. BAD: You feel a chill and decide to run for the
       door.  GOOD: The cold gnaws at the alley; a door bangs somewhere ahead.
 

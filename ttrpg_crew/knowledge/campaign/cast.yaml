@@ -6,7 +6,7 @@
 # from the name banks — only the people who recur and matter live here.
 
 cast:
-  - name: Sharon Naomi
+  - name: Jessa Tamae
     ancestry: Human
     faction: unaligned (commoner)
     role: patron
@@ -15,9 +15,9 @@ cast:
       Get the stolen Tinctura of her dead sister to the Spiritus Conclave to be
       given a vessel, before the Siderian Clade reclaims and refines it.
     voice: breathless, frightened, grateful to the point of tears
-    state: hunted and out of time — she is the "stranger" of the opening scene
+    state: hunted and out of time. She is the "stranger" of the opening scene
 
-  - name: Chiaki Wang
+  - name: Damian Frost
     ancestry: Human
     faction: Siderian Clade (Logician, Command track)
     role: antagonist

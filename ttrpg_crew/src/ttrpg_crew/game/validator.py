@@ -125,7 +125,7 @@ _COMPANION_VOICE_VERBS = (
     r"glances?|darts?|hardens?|tenses?|stiffens?|frowns?|winces?|tilts?|"
     r"regards?|flinches?|bristles?|perch(?:es|ed)?|readies|eyes)"
 )
-# GM describing a companion's body/expression ("Mireille's hand trembles").
+# GM describing a companion's body/expression ("the companion's hand trembles").
 _COMPANION_BODY_NOUNS = (
     r"(?:face|eyes|gaze|voice|hands?|expression|jaw|shoulders?|brow|lips|"
     r"fingers?|head|mouth|features?)"
@@ -145,15 +145,15 @@ def _companion_voice_res(name: str) -> tuple[re.Pattern, ...]:
 
 
 @lru_cache(maxsize=None)
-def _player_narrate_re(human_player_name: str) -> re.Pattern:
+def _player_narrate_re(protagonist_name: str) -> re.Pattern:
     """Compiled companion-narrates-the-player pattern; name is static per session."""
-    return re.compile(re.escape(human_player_name) + r"\s+" + _AGENCY_VERBS, re.I)
+    return re.compile(re.escape(protagonist_name) + r"\s+" + _AGENCY_VERBS, re.I)
 
 
 def audit_gm(
     text: str,
     *,
-    human_player_name: str = "Player",
+    protagonist_name: str = "Player",
     companions: tuple[str, ...] = (),
 ) -> list[Violation]:
     violations: list[Violation] = []
@@ -252,7 +252,7 @@ def strip_companion_prompt(text: str) -> str:
 
 
 def strip_speaker_label(text: str, *labels: str) -> str:
-    """Remove a leaked leading speaker label ("GM:", "Mireille Vane:", ...).
+    """Remove a leaked leading speaker label ("GM:", "<companion name>:", ...).
 
     The story-so-far is injected as "Name: ..." transcript lines and models
     sometimes imitate the format in their own output.
@@ -296,15 +296,15 @@ def normalize_rewrite(text: str, character_name: str = "") -> str:
 def audit_companion(
     text: str,
     *,
-    human_player_name: str = "Player",
+    protagonist_name: str = "Player",
     character_name: str = "",
 ) -> list[Violation]:
     violations: list[Violation] = []
 
     # Narrator leakage: the companion writes like the GM. Two reliable tells —
-    # referring to THEMSELVES in third person ("Mireille Vane waits at your
-    # shoulder": own name used as a sentence subject), and handing the turn
-    # back mid-text. Self-naming inside dialogue ("I'm Mireille Vane.") is fine
+    # referring to THEMSELVES in third person (their own name used as a sentence
+    # subject, "<name> waits at your shoulder"), and handing the turn
+    # back mid-text. Self-naming inside dialogue ("I'm <name>.") is fine
     # because the name isn't followed by a verb there.
     if character_name:
         n = re.escape(character_name.strip())
@@ -339,7 +339,7 @@ def audit_companion(
         )
 
     # Companion narrating the human player in third person (dialogue is fine).
-    m = _player_narrate_re(human_player_name).search(text)
+    m = _player_narrate_re(protagonist_name).search(text)
     if m:
         violations.append(
             Violation(
@@ -589,15 +589,15 @@ def audit(
     label: str,
     text: str,
     *,
-    human_player_name: str = "Player",
+    protagonist_name: str = "Player",
     companions: tuple[str, ...] = (),
     character_name: str = "",
 ) -> list[Violation]:
     """Dispatch: GM vs companion rules, plus shared AI-style checks."""
     if label == "GM":
-        base = audit_gm(text, human_player_name=human_player_name, companions=companions)
+        base = audit_gm(text, protagonist_name=protagonist_name, companions=companions)
     else:
         base = audit_companion(
-            text, human_player_name=human_player_name, character_name=character_name
+            text, protagonist_name=protagonist_name, character_name=character_name
         )
     return base + audit_style(text)

@@ -1,0 +1,88 @@
+# Adversary stat blocks for GM encounters.
+#
+# Ported from the previous (AutoGen) version's data/adversaries.yaml with
+# faction names modernized to current canon (Iron Covenant -> Siderian Clade,
+# Weaver's Conclave -> Spiritus Conclave, Vestigium -> retired). Numbers are
+# carried over unchanged. Not yet wired into code — the GM can be fed these
+# via the campaign frame's encounters list; a combat system that reads hp/
+# attack_bonus mechanically is future work.
+
+adversaries:
+  clade_enforcer:
+    name: "Siderian Clade Enforcer"
+    hp: 15
+    evasion: 11
+    attack_bonus: 3
+    damage: "1d8+3"
+    difficulty: 13
+    description: "Armored soldier of the Siderian Clade, wielding industrial weapons."
+
+  shadow_hound:
+    name: "Shadow Hound"
+    hp: 8
+    evasion: 13
+    attack_bonus: 2
+    damage: "1d6+2"
+    difficulty: 11
+    description: "A beast of living darkness that hunts by sound and fear."
+
+  memory_thief:
+    name: "Memory Thief"
+    hp: 6
+    evasion: 14
+    attack_bonus: 4
+    damage: "1d4+1"
+    difficulty: 14
+    description: "Spectral entity that feeds on memories, leaving victims confused."
+
+  vigil_construct:
+    # was "vestigium_drone" — Vestigium is retired canon
+    name: "Vigil Construct"
+    hp: 4
+    evasion: 12
+    attack_bonus: 1
+    damage: "1d4"
+    difficulty: 10
+    description: "Small automated construct running on residual spiritus charge."
+
+  old_blood_zealot:
+    # TODO(canon): was "old_blood_cultist" — current canon has the Old Blood
+    # Council as aristocratic memory-hoarders, not a cult. Recast as a fanatic
+    # house retainer; rule whether ritualist house servants fit.
+    name: "Old Blood Zealot"
+    hp: 10
+    evasion: 10
+    attack_bonus: 2
+    damage: "1d6+1"
+    difficulty: 12
+    description: "Fanatical retainer of an Old Blood house, wielding forbidden preservation rites."
+
+  refinery_golem:
+    name: "Refinery Golem"
+    hp: 20
+    evasion: 8
+    attack_bonus: 4
+    damage: "2d6+4"
+    difficulty: 14
+    description: "Massive construct built from industrial machinery and bound spiritus."
+
+  masked_assassin:
+    # TODO(canon): was "weaver_assassin" (Weaver's Conclave) — the Spiritus
+    # Conclave has no assassins in current canon. Kept faction-unaffiliated;
+    # rule who fields elite killers (Clade Command? an Old Blood house?).
+    name: "Masked Assassin"
+    hp: 12
+    evasion: 15
+    attack_bonus: 5
+    damage: "1d8+2"
+    difficulty: 15
+    description: "Elite operative trained in shadow magic and blade work."
+
+  street_thug:
+    name: "Street Thug"
+    hp: 6
+    evasion: 10
+    attack_bonus: 1
+    damage: "1d6"
+    difficulty: 10
+    description: "Common criminal looking for easy marks."

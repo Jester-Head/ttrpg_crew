@@ -128,7 +128,7 @@ def select_speakers(
     recent_story: str,
     available_speakers: list[str],
     scene_type: str,
-    human_player_name: str = "Player",
+    protagonist_name: str = "Player",
 ) -> ModeratorSelection:
     """Pick who speaks this beat, deterministically (no LLM call).
 

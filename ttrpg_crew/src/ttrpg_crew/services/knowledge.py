@@ -23,7 +23,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from ttrpg_crew.config_loader import config_section, load_text_lines, load_yaml_config
+from ttrpg_crew.config_loader import config_section, load_yaml_config
 
 def _find_project_root() -> Path:
     """Locate the data root: the folder that holds ``knowledge/``.
@@ -100,11 +100,13 @@ _CHUNK_OVERLAP = int(_rc.get("chunk_overlap", 150))
 # Direct injection (no embeddings)
 # --------------------------------------------------------------------------- #
 def load_premise() -> str:
-    """Return the campaign premise text, or '' if the file is empty/missing."""
-    path = _KNOWLEDGE_DIR / "campaign" / "premise.md"
-    if not path.is_file():
-        return ""
-    return path.read_text(encoding="utf-8").strip()
+    """Return the campaign premise text from the campaign frame, or ''.
+
+    The premise lives inside the campaign frame (frame.yaml `premise:`), not a
+    separate file — mirroring the old version, where the campaign details
+    carried the premise.
+    """
+    return str(load_campaign_frame().get("premise") or "").strip()
 
 
 def load_latest_session_recap() -> str:
@@ -120,19 +122,38 @@ def load_latest_session_recap() -> str:
 
 _NAME_BANK_DIR = _KNOWLEDGE_DIR / "name_banks"
 
+# Gender groups in display order. Keys match the YAML bank files; the label is
+# the pronoun hint shown to the GM so it names an NPC to match their pronouns.
+# 'unsorted' carries no pronoun (not yet gender-classified) — usable for anyone.
+_GENDER_LABELS = {
+    "male": "he/him",
+    "female": "she/her",
+    "neutral": "they/them",
+    "unsorted": "",
+}
 
-def load_name_banks() -> dict[str, list[str]]:
-    """Load curated names keyed by ancestry (e.g. {'human': [...], 'elf': [...]}).
 
-    Called every beat (name-pool sampling); each bank file is mtime-cached.
+def load_name_banks() -> dict[str, dict[str, list[str]]]:
+    """Curated NPC names keyed by ancestry, then by gender group.
+
+    e.g. {'human': {'male': [...], 'female': [...], 'neutral': [...]},
+          'clank': {'unsorted': [...]}}. Gender groups let the GM name an NPC to
+    match their pronouns; 'unsorted' is the not-yet-classified bucket. Called
+    every beat (name-pool sampling); each bank file is mtime-cached.
     """
-    banks: dict[str, list[str]] = {}
+    banks: dict[str, dict[str, list[str]]] = {}
     if not _NAME_BANK_DIR.is_dir():
         return banks
-    for path in sorted(_NAME_BANK_DIR.glob("*_names.txt")):
-        names = load_text_lines(path)
-        if names:
-            banks[path.stem.replace("_names", "")] = names
+    for path in sorted(_NAME_BANK_DIR.glob("*_names.yaml")):
+        data = load_yaml_config(path)
+        # Keep only known gender groups, in canonical order, with list values.
+        groups = {
+            g: [str(n) for n in data[g]]
+            for g in _GENDER_LABELS
+            if isinstance(data.get(g), list) and data[g]
+        }
+        if groups:
+            banks[path.stem.replace("_names", "")] = groups
     return banks
 
 
@@ -145,20 +166,37 @@ def _sampling_count(key: str, default: int) -> int:
 
 
 def sample_name_pool(per_ancestry: int | None = None) -> str:
-    """A fresh per-beat sample of curated NPC names, grouped by ancestry.
+    """A fresh per-beat sample of curated NPC names, grouped by ancestry+gender.
 
     Injected into the GM prompt so new NPCs are named from the campaign's own
-    banks instead of generic AI defaults (Elara, Kael, …). Re-sampled each beat
-    for variety; names already in the transcript persist on their own.
+    banks instead of generic AI defaults (Elara, Kael, …), and so the name suits
+    the NPC's pronouns. Re-sampled each beat for variety; names already in the
+    transcript persist on their own.
+
+    `per_ancestry` names are sampled from EACH gender group present, so a fully
+    gendered ancestry (e.g. human) shows he/him + she/her + they/them options
+    while an unclassified one stays a single flat list. Format per ancestry:
+        Human [he/him: A, B; she/her: C, D; they/them: E, F]
+        Clank [Zizi, Zenn]
     """
     if per_ancestry is None:
         per_ancestry = _sampling_count("names_per_ancestry", 2)
     banks = load_name_banks()
-    groups = []
-    for ancestry, names in banks.items():
-        picks = random.sample(names, min(per_ancestry, len(names)))
-        groups.append(f"{ancestry.capitalize()}: {', '.join(picks)}")
-    return "; ".join(groups)
+    entries = []
+    for ancestry, groups in banks.items():
+        # Bare list when the only group is the unclassified bucket; otherwise
+        # tag each group with its pronoun hint so the GM can match the NPC.
+        only_unsorted = set(groups) == {"unsorted"}
+        parts = []
+        for group, names in groups.items():
+            picks = random.sample(names, min(per_ancestry, len(names)))
+            label = _GENDER_LABELS[group]
+            if only_unsorted or not label:
+                parts.append(", ".join(picks))
+            else:
+                parts.append(f"{label}: {', '.join(picks)}")
+        entries.append(f"{ancestry.capitalize()} [{'; '.join(parts)}]")
+    return " ".join(entries)
 
 
 def _palette_leaves(node: Any, label: str):
