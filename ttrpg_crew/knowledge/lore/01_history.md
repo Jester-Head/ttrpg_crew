@@ -15,8 +15,8 @@
 |---|---:|---|
 | **Arche: The Jewel of the Tides** | ~400 years pre-displacement | Foundation, the three Calamities, rise of the Cult |
 | **The Rite of Unmaking** | One night | Rite of Dissonance is cast; the Cult is erased; Gloamvere City is torn from Arche |
-| **The Dark Years** | ~0–40 post-displacement | Darkness, starvation, the first lamps, survival governance |
-| **The Kindling** | ~40–120 post-displacement | Memory discovered as substance, first extraction, proto-factions form |
+| **The Dark Years** | ~0–40 post-displacement | Darkness, starvation, the first lamps, survival governance; the reading of the dead becomes the founding sacrament |
+| **The Kindling** | ~40–120 post-displacement | Extraction from the willing living breaks the Old Blood monopoly; proto-factions form |
 | **The Consolidation** | ~120–300 post-displacement | Three factions formalize, districts harden, currency standardized |
 | **The Modern Era** | ~300–present (~500+ years post-displacement) | Current political structure, established economy, ongoing tensions |
 
@@ -125,9 +125,11 @@ By the end of this era, the people of Arche were considered the most steadfast i
 
 ### The Cult of the Fractured Mirror
 
-As Gloamvere City reached its zenith, an insidious rot took hold in the shadows. The Cult of the Fractured Mirror, worshipers of a Mistress of Discord known as Lady Nyxentia, infiltrated the city. They did not seek wealth; they despised the Archean order and the rigid structure of the trade guilds.
+As Gloamvere City reached its zenith, a rot took hold in its shadows. The Cult of the Fractured Mirror, followers of a figure they named Lady Nyxentia, drew its faithful from those who had come to despise what the city worshipped. Their grievance was the thing the city was proudest of: its markets. Arche’s Gloamvere priced everything, survival, history, even the bonds between people, and the Cult held that a civilization which would sell its own past had already damned itself. The guilds and the great houses were not the order the Cult resented. They were the rot.
 
-The Cult believed that Gloamvere’s resilience was an affront to the natural chaos of the universe. They sought to shatter the city’s spirit by breaking the barrier between the material world and the chaotic energies beneath the Aethos burial grounds.
+What the Cult wanted was not ruin for its own sake but transcendence, forced and total. Strip humanity of wealth and the material world, they taught, and what remained would become something that needed neither. Sink or swim; the faithful would rise, and the rest were never their concern. The Rite was the instrument. Performed at the convergence of dimensional boundaries beneath the Aethos burial grounds, it was meant to tear the city loose from the material world altogether. The acolytes went to the work certain it was a kindness, though whether Lady Nyxentia intended their salvation or something else is a question the city has never been able to answer.
+
+The irony is left to the historians who can afford to say it. The Cult set out to destroy a market, and the world the Rite made built a worse one. Memory became the coin. Everything they had hated about Arche’s Gloamvere returned, priced now by the breath.
 
 #### Who Was Lady Nyxentia?
 
@@ -242,6 +244,18 @@ The first lamps were crude: clay dishes of canal sludge with cloth wicks. They s
 
 (The full account of the lamp origin and its philosophical implications is covered in the Memory Economy & Technology document. What matters here is that the discovery of memory-as-fuel was the survival event that made everything else possible.)
 
+#### The Hanged Man
+
+The first lamps taught the city that memory could be burned. A death in the early dark years taught it that memory could be *read*.
+
+A captured acolyte of the Fractured Mirror, one of the believers swept up after the displacement, was interrogated for what he knew of the Rite and whether it could be undone. He gave sermons instead of answers, and when the questioning yielded nothing he was hanged in public, to be made an example rather than a martyr. As the rope drew tight, a labourer in the crowd was seized by a vision: a quay, a face, light on water, a place he had never seen. The emergency council named it a sign. The ancestors, they said, had spoken through the death of the city’s enemy, and the houses that recognized the sign were appointed its stewards. This became the founding sacrament of what would harden into the Old Blood Council.
+
+What the city was not told came later, in a cold room. The body was given over to the one who tended the dead, and the embalmer found a faint condensate beading on the corpse the way breath beads on glass in winter. Warmed at the face, it turned back to vapor, and for a few seconds the embalmer stood on the same quay the labourer had wept over. The vision had not been granted from above. It had been taken, by hand, from a dead man, and it could be done again on any corpse by anyone with cold air and the stomach for it.
+
+The council understood what it had been handed. A sign from the ancestors anoints a throne; a procedure any corpse-handler can repeat anoints nothing. So it kept both. It gave the city the vision and the mandate, folded the tending of the dead into a sacred and tightly held office, and sealed the method. The reading of the dead is the oldest stratum of the memory economy, older than extraction from the living, and the houses that became the Old Blood have guarded its origin ever since.
+
+(The two surviving accounts of this death, the public liturgy and the sealed council record, are set down in full in the Founding Accounts document.)
+
 #### Food and Survival
 
 The food crisis was slower to resolve and never fully resolved in the Dark Years. The city’s survival depended on three developments:
@@ -269,6 +283,8 @@ The canal sludge burned. That was the Dark Years’ survival discovery. The Kind
 
 The first generation had been too focused on survival to investigate. The second generation, born in Gloamvere City, never having seen the sun, knowing Arche only through their parents’ increasingly hazy recollections, was the generation that experimented.
 
+One thing was already known, though only to a few. The houses that had held the city through the Dark Years had learned that memory could be drawn from the dead, and they kept the method sealed while teaching the city to revere its result as a sign from the ancestors. What the Kindling added was not the discovery that memory was physical. It was the discovery that a death was not required.
+
 The key observations, arrived at gradually over decades:
 
 **Memory was leaking.** The displacement had not just moved the city, it had changed the rules. Cognitive substance, the material of thought, memory, and experience, had become tangible in Kavath’s atmosphere. People were losing memories slowly, involuntarily, and the lost substance was condensing into the canals and the air. The first generation’s gradual forgetting of Arche was not just the natural fading of time. It was *physical*. Their memories were seeping out of them and pooling in the waterways.
@@ -287,7 +303,7 @@ The three-way split that would become the Spiritus Conclave, the Old Blood Counc
 
 **The artisan guilds**, descendants of Arche’s weavers, smiths, carpenters, and builders, were the first to experiment with memory infusion. They were makers by nature, and when they discovered that memory could be worked into physical objects, they saw a new craft. Their instinct was to *create*. They became the Spiritus Conclave.
 
-**The noble families**, descendants of Arche’s aristocratic and priestly houses, were the first to recognize the theological implications. If memory was leaking from people involuntarily, then the city was losing its history. The families with the means to do so began *collecting*, preserving the first generation’s memories of Arche before they degraded beyond recovery. Their instinct was to *protect*. They became the Old Blood Council.
+**The noble families**, descendants of Arche’s aristocratic and priestly houses, did not arrive at the Kindling empty-handed. They were the houses that had held the city through the Dark Years, and they already knew what the rest of Gloamvere did not: that memory could be drawn from the dead, and that the vision the city revered as the ancestors’ first word was a method, sealed and kept. They had built their authority on it. So when others began drawing memory from the *living* into glass, the families understood the danger early, because they understood the secret better than anyone. A sacrament cannot be monopolized once any hand with a vessel can repeat it. Their instinct was to *protect*, and what they moved to protect was their hold on the method as much as the city’s fading history. They became the Old Blood Council.
 
 **The natural philosophers**, descendants of Arche’s scholars, engineers, and physicians, were the first to ask *how*. While the artisans crafted and the nobles hoarded, the philosophers measured, categorized, and experimented. They built the first Eidolon Compasses. They mapped the degradation curve. They discovered that memory could be refined from lower tiers to higher. Their instinct was to *understand*. They became the Siderian Clade.
 
@@ -445,7 +461,7 @@ None of this proves anything. All of it fits within mundane explanations. The am
 
 #### The Short Answer
 
-Nothing. The Cult was destroyed by its own Rite. The cultists were annihilated at the point of casting. No survivors. No Tinctura. No Quintessa. No memory artifacts of any kind from the Marrow Vault at the moment of displacement. The Cult of the Fractured Mirror is gone.
+Almost nothing. Most of the Cult was destroyed by its own Rite, but not everyone was permitted to perform the casting. The inner circle who stood in the Marrow Vault were annihilated at the point of it. The lesser acolytes who served other roles were not there to be consumed, and some survived, only to be hunted down in the sweeps that followed. No Tinctura. No Quintessa. No memory artifacts of any kind from the Marrow Vault at the moment of displacement. The Cult of the Fractured Mirror is gone.
 
 #### The Longer Answer
 
