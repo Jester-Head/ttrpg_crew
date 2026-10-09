@@ -51,7 +51,7 @@ The first run indexes the lore and rules into a local vector store
 
 ## Third-party content
 
-This project includes the Daggerheart SRD under the Darrington Press Community
-Gaming License. See [NOTICE.md](NOTICE.md) for the required attribution and
-terms. The engine code and the Gloamvere City setting are original to this
+This project includes the System Reference Document 5.2.1 under the Creative
+Commons Attribution 4.0 International License. See [NOTICE.md](NOTICE.md) for
+the required attribution and terms. The engine code and the Gloamvere City setting are original to this
 project.
