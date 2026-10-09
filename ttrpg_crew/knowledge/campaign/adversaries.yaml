@@ -6,12 +6,16 @@
 # carried over unchanged. Not yet wired into code — the GM can be fed these
 # via the campaign frame's encounters list; a combat system that reads hp/
 # attack_bonus mechanically is future work.
+#
+# TODO(dnd): `ac` was Daggerheart Evasion, renamed with the numbers unchanged.
+# hp and `difficulty` are still on Daggerheart's scale; rebalance for D&D
+# (and add a CR) once the edition is settled.
 
 adversaries:
   clade_enforcer:
     name: "Siderian Clade Enforcer"
     hp: 15
-    evasion: 11
+    ac: 11
     attack_bonus: 3
     damage: "1d8+3"
     difficulty: 13
@@ -20,7 +24,7 @@ adversaries:
   shadow_hound:
     name: "Shadow Hound"
     hp: 8
-    evasion: 13
+    ac: 13
     attack_bonus: 2
     damage: "1d6+2"
     difficulty: 11
@@ -29,7 +33,7 @@ adversaries:
   memory_thief:
     name: "Memory Thief"
     hp: 6
-    evasion: 14
+    ac: 14
     attack_bonus: 4
     damage: "1d4+1"
     difficulty: 14
@@ -39,7 +43,7 @@ adversaries:
     # was "vestigium_drone" — Vestigium is retired canon
     name: "Vigil Construct"
     hp: 4
-    evasion: 12
+    ac: 12
     attack_bonus: 1
     damage: "1d4"
     difficulty: 10
@@ -51,7 +55,7 @@ adversaries:
     # house retainer; rule whether ritualist house servants fit.
     name: "Old Blood Zealot"
     hp: 10
-    evasion: 10
+    ac: 10
     attack_bonus: 2
     damage: "1d6+1"
     difficulty: 12
@@ -60,7 +64,7 @@ adversaries:
   refinery_golem:
     name: "Refinery Golem"
     hp: 20
-    evasion: 8
+    ac: 8
     attack_bonus: 4
     damage: "2d6+4"
     difficulty: 14
@@ -72,7 +76,7 @@ adversaries:
     # rule who fields elite killers (Clade Command? an Old Blood house?).
     name: "Masked Assassin"
     hp: 12
-    evasion: 15
+    ac: 15
     attack_bonus: 5
     damage: "1d8+2"
     difficulty: 15
@@ -81,7 +85,7 @@ adversaries:
   street_thug:
     name: "Street Thug"
     hp: 6
-    evasion: 10
+    ac: 10
     attack_bonus: 1
     damage: "1d6"
     difficulty: 10
