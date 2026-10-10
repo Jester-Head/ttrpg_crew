@@ -37,7 +37,7 @@ def _run(cmd: list[str], timeout: int = 600) -> subprocess.CompletedProcess:
 
 
 def swap_model(cfg: dict, model: str) -> None:
-    lms = str(cfg.get("lms_path", "lms"))
+    lms = str(Path(cfg.get("lms_path", "lms")).expanduser())
     ctx = str(cfg.get("context_length", 16384))
     print(f"[eval] loading {model} (this can take a minute)...", flush=True)
     _run([lms, "unload", "--all"])

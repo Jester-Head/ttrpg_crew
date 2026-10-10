@@ -115,6 +115,6 @@ evaluation:
     - google/gemma-3-27b
     - openai/gpt-oss-20b
   context_length: 16384      # -c passed to lms load
-  # TODO: Change path name
-  lms_path: C:/Users/sarah/.lmstudio/bin/lms.exe
+  # LM Studio's CLI at its default install location. Use just `lms` if it's on your PATH.
+  lms_path: ~/.lmstudio/bin/lms
   embedding_model: text-embedding-nomic-embed-text-v1.5  # reloaded after unload --all
