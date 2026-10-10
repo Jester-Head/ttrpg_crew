@@ -108,8 +108,13 @@ def scene_update_messages(
     protagonist_name: str,
     party_names: list[str],
     suggestions: int,
+    max_suggestion_chars: int = _DEFAULTS["max_suggestion_chars"],
 ) -> tuple[str, str]:
-    """Build (system, user) for the tracker call."""
+    """Build (system, user) for the tracker call.
+
+    `max_suggestion_chars` should be the same limit clean_suggestions()
+    enforces, so the model is asked for what the filter will keep.
+    """
     player = protagonist_name or "the player"
     action = player_input.strip() or "(opening scene; no action yet)"
     party = ", ".join(n for n in (protagonist_name, *party_names) if n) or "None"
@@ -138,7 +143,7 @@ Return:
   true only if the beat changes it; otherwise repeat the current objective.
 - summary: one plain sentence on where things stand right now.
 - suggested_actions: {suggestions} short things {player} could do next, each
-  under 90 characters, written as a command in the player's voice (for example
+  under {max_suggestion_chars} characters, written as a command in the player's voice (for example
   "Ask the ferryman who paid him"). Ground each in what the beat shows. Make
   them distinct: one direct, one social or investigative, one cautious or
   unexpected. Never repeat the action just taken, ask for a dice roll, or

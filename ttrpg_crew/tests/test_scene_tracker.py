@@ -183,8 +183,22 @@ def test_messages_carry_state_and_beat():
     assert "JSON" in system
     for expected in ("The Cinder Docks", "Find the sender", "- Vell owes a debt",
                      "Vell spits into the canal.", "I ask Vell about the vial",
-                     "Mireille Vane", "3 short things"):
+                     "Mireille Vane", "3 short things", "under 90 characters"):
         assert expected in user
+
+
+def test_messages_use_configured_suggestion_length():
+    _, user = scene_update_messages(
+        beat_text="Vell spits into the canal.",
+        state=_state(),
+        player_input="",
+        protagonist_name="Shimoda Rice",
+        party_names=_PARTY,
+        suggestions=3,
+        max_suggestion_chars=60,
+    )
+    assert "under 60 characters" in user
+    assert "under 90 characters" not in user
 
 
 def test_scene_memory_empty_until_something_is_known():

@@ -487,6 +487,7 @@ class TTRPGFlow:
             protagonist_name=self.protagonist_name,
             party_names=party_names,
             suggestions=cfg["suggestions"],
+            max_suggestion_chars=cfg["max_suggestion_chars"],
         )
         raw = json_completion(
             self.tracker_llm, system, user, schema=SCENE_UPDATE_SCHEMA, name="scene_update"
