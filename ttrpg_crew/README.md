@@ -43,8 +43,11 @@ run_ttrpg
 python -m ttrpg_crew.main
 ```
 
-Type an action at the prompt and press Enter; `quit` to leave. Set `TTRPG_DEBUG=1`
-to see engine internals (agent panels, timing, and audit lines).
+Type an action at the prompt and press Enter; `quit` to leave. After each beat the
+game also lists a few suggested actions: type a number to take one, or ignore them
+and write your own. (Turn them off with `scene_tracker: enabled: false` in
+`src/ttrpg_crew/config/models.yaml`.) Set `TTRPG_DEBUG=1` to see engine internals
+(agent panels, timing, and audit lines).
 
 The first run indexes the lore and rules into a local vector store
 (`.knowledge_store/`), which takes a moment; later runs reuse it.

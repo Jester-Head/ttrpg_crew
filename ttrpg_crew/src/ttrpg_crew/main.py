@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 from ttrpg_crew import session_log
 from ttrpg_crew.config_loader import config_section
 from ttrpg_crew.flow import TTRPGFlow
+from ttrpg_crew.game.scene_tracker import pick_suggestion
 from ttrpg_crew.prompts.prompt_loader import resolve_tier_for_model
 
 
@@ -88,7 +89,7 @@ def _build_flow() -> TTRPGFlow:
         LOCAL_LLM_BASE_URL=http://localhost:1234/v1   # LM Studio server URL
         LOCAL_LLM_API_KEY=lm-studio                   # LM Studio ignores the value
         LOCAL_LLM_MODEL=...        # force a model id instead of auto-detecting
-        LOCAL_MANAGER_MODEL=...    # faster model for the moderator (speaker pick)
+        LOCAL_MANAGER_MODEL=...    # faster model for the moderator + scene tracker
         LOCAL_EDITOR_MODEL=...     # faster model for the AI-ism editor pass
         LOCAL_EDITOR_BASE_URL=...  # server for the editor model (defaults to main)
         LOCAL_EDITOR_API_KEY=...   # api key for the editor server (defaults to main)
@@ -142,6 +143,10 @@ def _build_flow() -> TTRPGFlow:
         key=os.getenv("LOCAL_EDITOR_API_KEY"),
     )
 
+    # The scene tracker shares the moderator's model (both emit JSON) but has
+    # its own sampling block.
+    tracker_llm = _make_llm(manager_model_id or model_id, _role_params("tracker"))
+
     if debug:
         print(
             f"[ttrpg] model={model_id}  tier={tier}  "
@@ -177,6 +182,7 @@ def _build_flow() -> TTRPGFlow:
         llm=llm,
         manager_llm=manager_llm,
         editor_llm=editor_llm,
+        tracker_llm=tracker_llm,
         tier=tier,
         debug=debug,
         use_llm_moderator=use_llm_moderator,
@@ -216,8 +222,17 @@ def run():
         if beat.closing_prompt:
             print(beat.closing_prompt + "\n", flush=True)
 
+        # Suggested next moves, kept apart from the story so they read as
+        # options, not narration. Free-form typing always works too.
+        suggestions = beat.suggested_actions
+        for number, action in enumerate(suggestions, start=1):
+            print(f"  {number}. {action}", flush=True)
+
         if first:
-            print("(Type your action and press Enter. 'quit' to leave.)", flush=True)
+            hint = "Pick a number, or type your own action." if suggestions else (
+                "Type your action and press Enter."
+            )
+            print(f"\n({hint} 'quit' to leave.)", flush=True)
             first = False
 
         try:
@@ -228,6 +243,11 @@ def run():
         if player_input.lower() in _QUIT:
             print("\nThe gaslight dims. Farewell.")
             break
+
+        picked = pick_suggestion(player_input, suggestions)
+        if picked != player_input:
+            print(f"> {picked}", flush=True)
+            player_input = picked
 
 
 if __name__ == "__main__":

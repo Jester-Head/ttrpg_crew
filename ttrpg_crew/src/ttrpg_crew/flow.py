@@ -9,6 +9,8 @@ Each kickoff() call runs one beat:
     5. classify player intent + assign companion stances (intent, stance)
     6. run the GM and selected companions            (beat_runner)
     7. audit/edit output, update transcript and scene state
+    8. track the scene: objective, facts, NPCs, suggested next actions
+       (scene_tracker; one structured-output call)
 """
 
 from __future__ import annotations
@@ -24,6 +26,14 @@ from pydantic import ValidationError
 from ttrpg_crew import session_log
 from ttrpg_crew.config_loader import config_section
 from ttrpg_crew.game.intent import classify_intent
+from ttrpg_crew.game.scene_tracker import (
+    SCENE_UPDATE_SCHEMA,
+    apply_scene_update,
+    format_scene_memory,
+    parse_scene_update,
+    scene_update_messages,
+    tracker_config,
+)
 from ttrpg_crew.game.schemas import ModeratorSelection
 from ttrpg_crew.game.stance import assign_stance, stance_directive
 from ttrpg_crew.game.speaker_policy import (
@@ -39,6 +49,7 @@ from ttrpg_crew.services.character_registry import (
     build_all_character_prompt_vars,
     load_character_profiles,
 )
+from ttrpg_crew.services.llm_call import json_completion
 from ttrpg_crew.services.knowledge import (
     ensure_indexed,
     format_cast,
@@ -68,6 +79,7 @@ class TTRPGFlow:
         llm: Any = None,
         manager_llm: Any = None,
         editor_llm: Any = None,
+        tracker_llm: Any = None,
         protagonist_name: str = "Player",
         debug: bool = False,
         use_llm_moderator: bool = False,
@@ -92,6 +104,9 @@ class TTRPGFlow:
         # The editor fixes flagged output; model-agnostic, defaults to the main
         # model. Point it at a faster model later if desired.
         self.editor_llm = editor_llm or llm
+        # The scene tracker emits JSON like the moderator, so it defaults to
+        # the moderator's model.
+        self.tracker_llm = tracker_llm or self.manager_llm
         self.transcript = Transcript()
 
         # Fail fast with guidance if the campaign/lore/SRD corpus is missing
@@ -165,6 +180,9 @@ class TTRPGFlow:
             "name_pool": sample_name_pool(),
             "style_cues": sample_style_cues(),
             "scene_context": gs.location,
+            # What the scene tracker has pinned down so far (objective, facts,
+            # NPCs met) — "" until the first beat has been tracked.
+            "scene_memory": format_scene_memory(gs),
             # The story so far — the continuity the GM and companions write
             # against. Tail-capped (models.yaml context:) so long sessions
             # don't blow the model's window; newest beats always survive.
@@ -383,6 +401,7 @@ class TTRPGFlow:
             name_pool=common_vars["name_pool"],
             style_cues=common_vars["style_cues"],
             scene_context=common_vars["scene_context"],
+            scene_memory=common_vars["scene_memory"],
             recent_story=common_vars["recent_story"],
             player_input=player_input,
             campaign_notes=common_vars["campaign_notes"],
@@ -405,13 +424,21 @@ class TTRPGFlow:
         if player_input.strip():
             self.transcript.append(self.protagonist_name, player_input.strip())
         self.transcript.append("GM", str(result))
-        self._advance_scene(str(result))
+        tagged_location = self._advance_scene(str(result))
+
+        # 7. Read the finished beat into scene memory + next-move suggestions.
+        tracker_start = time.perf_counter()
+        result.suggested_actions = self._track_scene(
+            str(result), player_input, tagged_location=tagged_location
+        )
+        tracker_secs = time.perf_counter() - tracker_start
 
         n_speakers = len(selection.selected_speakers)
         gm_calls = 1 if selection.gm_should_frame_first else 0
         timing = (
             f"[timing] moderator={moderator_secs:.1f}s  "
             f"beat={beat_secs:.1f}s ({gm_calls} GM + {n_speakers} companions)  "
+            f"tracker={tracker_secs:.1f}s  "
             f"total={time.perf_counter() - beat_start:.1f}s"
         )
         # Console only in debug, but always into the session debug log — the
@@ -422,8 +449,12 @@ class TTRPGFlow:
 
         return result
 
-    def _advance_scene(self, beat_text: str) -> None:
-        """Light scene progression from GM tags in the narration."""
+    def _advance_scene(self, beat_text: str) -> bool:
+        """Light scene progression from GM tags in the narration.
+
+        Returns whether the GM set the location with a tag this beat (which
+        then outranks the scene tracker's reading).
+        """
         loc = re.search(r"\[LOCATION:\s*([^\]]+)\]", beat_text)
         if loc:
             self.game_state.location = loc.group(1).strip()
@@ -431,6 +462,57 @@ class TTRPGFlow:
             self.game_state.scene_type = "combat"
         elif self.game_state.scene_type == "opening":
             self.game_state.scene_type = "narrative"
+        return loc is not None
+
+    def _track_scene(
+        self, beat_text: str, player_input: str, *, tagged_location: bool
+    ) -> list[str]:
+        """Run the scene tracker on the finished beat; return suggested actions.
+
+        Never breaks the beat: with the tracker off, no model, or an unusable
+        reply, the scene memory is left as it was and no suggestions are shown.
+        """
+        cfg = tracker_config()
+        self.game_state.suggested_actions = []
+        if not cfg["enabled"] or self.tracker_llm is None or not beat_text.strip():
+            return []
+
+        party_names = [
+            str(profile.get("name", cid)) for cid, profile in self.character_profiles.items()
+        ]
+        system, user = scene_update_messages(
+            beat_text=beat_text,
+            state=self.game_state,
+            player_input=player_input,
+            protagonist_name=self.protagonist_name,
+            party_names=party_names,
+            suggestions=cfg["suggestions"],
+        )
+        raw = json_completion(
+            self.tracker_llm, system, user, schema=SCENE_UPDATE_SCHEMA, name="scene_update"
+        )
+        update = parse_scene_update(raw)
+        if update is None:
+            session_log.diag(f"[tracker] unusable reply: {raw[:200]!r}")
+            return []
+
+        apply_scene_update(
+            self.game_state,
+            update,
+            protagonist_name=self.protagonist_name,
+            party_names=party_names,
+            player_input=player_input,
+            tagged_location=tagged_location,
+            config=cfg,
+        )
+        session_log.diag(
+            f"[tracker] location={self.game_state.location!r}  "
+            f"objective={self.game_state.party_goal!r}  "
+            f"facts={len(self.game_state.known_facts)}  "
+            f"npcs={len(self.game_state.active_npcs)}  "
+            f"suggestions={self.game_state.suggested_actions}"
+        )
+        return list(self.game_state.suggested_actions)
 
     def _update_turn_counts(self, spoke_this_beat: list[str]) -> None:
         spoke = set(spoke_this_beat)
