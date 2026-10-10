@@ -1,6 +1,6 @@
 # ttrpg_crew
 
-A solo TTRPG engine for D&D, set in Gloamvere City (Kavath),
+A 5E-compatible solo TTRPG engine, set in Gloamvere City (Kavath),
 run by CrewAI agents against a local LLM. A Game Master agent narrates, companion
 agents play the party, and a deterministic policy decides who speaks each beat.
 Prompts adapt to the size of the loaded model, and an auditor plus editor pass
