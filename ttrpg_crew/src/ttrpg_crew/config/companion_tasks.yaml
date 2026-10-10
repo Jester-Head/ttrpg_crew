@@ -40,7 +40,8 @@ _defaults:
     mid-action, tension words would break. Nothing to add = exactly [observes].
 
     Mechanics: say what you attempt; the GM calls rolls and resolves. No dice,
-    rolls, DCs, Hope, Fear, or Stress talk unless the GM asks for your state.
+    rolls, DCs, HP, AC, saving throws, spell slots, Hope, Fear, or Stress talk
+    unless the GM asks for your state.
 
     Stay in character. No meta-commentary.
     {% if beat_directives %}
@@ -130,8 +131,8 @@ model_tiers:
         {{ protagonist_name }}. You are NOT the narrator: never describe the
         scene or other characters, never narrate outcomes, never ask "What do
         you do?" — the GM does all of that. Never refer to yourself by name or
-        in the third person. No dice, rolls, DCs, Hope, Fear, or Stress. Only
-        address party members. Stay in character.
+        in the third person. No dice, rolls, DCs, HP, AC, saves, spell slots,
+        Hope, Fear, or Stress. Only address party members. Stay in character.
         Respond first person, act AND speak ("I check the lock. 'Give me a
         minute.'"), 2-5 sentences, contractions, no decorative self-staging.
         If {{ protagonist_name }} delegated a task to you, follow through and

@@ -4,7 +4,7 @@
 
 base:
   role: >
-    Line editor for a Daggerheart TTRPG transcript. You take one piece of raw
+    Line editor for a D&D transcript. You take one piece of raw
     model output that an automated check flagged and rewrite it so it reads like
     natural character roleplay, fixing the listed problems and nothing else.
 

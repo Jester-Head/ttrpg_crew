@@ -6,9 +6,10 @@ Two halves, by design (see the project's "hybrid" knowledge decision):
    variables every beat: the campaign premise and the latest session recap.
 
 2. Retrieval (RAG) — the large reference corpora (lore + SRD rules) are indexed
-   once into a persistent chromadb collection, embedded by the LOCAL LM Studio
+   into a persistent chromadb collection, embedded by the LOCAL LM Studio
    embedding model. The GM reaches them through a search tool, so each beat only
-   pays a cheap query, never a re-index.
+   pays a cheap query. The index rebuilds itself only when the sources (or the
+   embedding model) change.
 
 Everything here is local: embeddings go to the LM Studio OpenAI-compatible
 endpoint, nothing leaves the machine.
@@ -329,6 +330,10 @@ def format_protagonist(pc: dict[str, Any]) -> str:
 # --------------------------------------------------------------------------- #
 # Retrieval (RAG) over lore + rules
 # --------------------------------------------------------------------------- #
+def _embed_model_name() -> str:
+    return os.getenv("LOCAL_EMBED_MODEL", "text-embedding-nomic-embed-text-v1.5")
+
+
 def _embedding_fn():
     """chromadb embedding function pointed at the LOCAL LM Studio embed model."""
     from chromadb.utils.embedding_functions.openai_embedding_function import (
@@ -336,29 +341,30 @@ def _embedding_fn():
     )
 
     base_url = os.getenv("LOCAL_LLM_BASE_URL", "http://localhost:1234/v1")
-    model_name = os.getenv(
-        "LOCAL_EMBED_MODEL", "text-embedding-nomic-embed-text-v1.5"
-    )
     api_key = os.getenv("LOCAL_LLM_API_KEY", "lm-studio")
 
     return OpenAIEmbeddingFunction(
         api_key=api_key,
-        model_name=model_name,
+        model_name=_embed_model_name(),
         api_base=base_url,
+    )
+
+
+def _client():
+    """The persistent chromadb client over the on-disk store."""
+    import chromadb
+    from chromadb.config import Settings
+
+    _STORE_DIR.mkdir(parents=True, exist_ok=True)
+    return chromadb.PersistentClient(
+        path=str(_STORE_DIR),
+        settings=Settings(anonymized_telemetry=False),
     )
 
 
 def _collection():
     """Get-or-create the persistent knowledge collection."""
-    import chromadb
-    from chromadb.config import Settings
-
-    _STORE_DIR.mkdir(parents=True, exist_ok=True)
-    client = chromadb.PersistentClient(
-        path=str(_STORE_DIR),
-        settings=Settings(anonymized_telemetry=False),
-    )
-    return client.get_or_create_collection(
+    return _client().get_or_create_collection(
         _COLLECTION, embedding_function=_embedding_fn()
     )
 
@@ -434,20 +440,8 @@ def _iter_source_files():
         yield from sorted(_KNOWLEDGE_DIR.glob(pattern))
 
 
-def ensure_indexed(*, verbose: bool = True) -> int:
-    """Index lore + rules into the collection if it is empty. Returns chunk count.
-
-    Safe to call every run: if the collection already holds documents, this is a
-    no-op (no re-embedding). Embedding errors propagate to the caller, which may
-    choose to disable retrieval and continue.
-    """
-    collection = _collection()
-    existing = collection.count()
-    if existing > 0:
-        if verbose:
-            print(f"[knowledge] collection ready ({existing} chunks, cached)")
-        return existing
-
+def _corpus_chunks() -> tuple[list[str], list[str]]:
+    """(ids, docs) for every chunk of the current source files. No embedding."""
     ids: list[str] = []
     docs: list[str] = []
     for path in _iter_source_files():
@@ -456,6 +450,50 @@ def ensure_indexed(*, verbose: bool = True) -> int:
         for chunk_id, doc in _iter_doc_chunks(rel, text):
             ids.append(chunk_id)
             docs.append(doc)
+    return ids, docs
+
+
+def _corpus_fingerprint(ids: list[str]) -> str:
+    """Identity of what the index should hold: the chunk ids (content hashes,
+    so they change with any edit, rename, or chunking knob) plus the embedding
+    model, whose vectors are not interchangeable with another model's."""
+    digest = hashlib.sha256(_embed_model_name().encode())
+    for chunk_id in ids:
+        digest.update(chunk_id.encode())
+    return digest.hexdigest()
+
+
+def ensure_indexed(*, verbose: bool = True) -> int:
+    """Make the collection match the current lore + rules. Returns chunk count.
+
+    Safe to call every run: when the stored fingerprint and chunk count match
+    the sources, this is a no-op (no re-embedding). Otherwise (sources edited,
+    files swapped, embedding model changed, or an earlier run died mid-index)
+    the collection is rebuilt. Embedding errors propagate to the caller, which
+    may choose to disable retrieval and continue.
+    """
+    ids, docs = _corpus_chunks()
+    fingerprint = _corpus_fingerprint(ids)
+
+    client = _client()
+    collection = client.get_or_create_collection(
+        _COLLECTION, embedding_function=_embedding_fn()
+    )
+    existing = collection.count()
+    stored = (collection.metadata or {}).get("corpus_fingerprint")
+    if existing and stored == fingerprint and existing == len(set(ids)):
+        if verbose:
+            print(f"[knowledge] collection ready ({existing} chunks, cached)")
+        return existing
+
+    # Stale or partial: start from an empty collection stamped with the new
+    # fingerprint. A run that dies mid-add leaves a short count, caught above.
+    client.delete_collection(_COLLECTION)
+    collection = client.create_collection(
+        _COLLECTION,
+        embedding_function=_embedding_fn(),
+        metadata={"corpus_fingerprint": fingerprint},
+    )
 
     if not docs:
         if verbose:
@@ -463,7 +501,8 @@ def ensure_indexed(*, verbose: bool = True) -> int:
         return 0
 
     if verbose:
-        print(f"[knowledge] indexing {len(docs)} chunks (one-time, embedding locally)...")
+        reason = "sources changed, re-indexing" if existing else "indexing"
+        print(f"[knowledge] {reason} {len(docs)} chunks (embedding locally)...")
     # Batch to keep request sizes sane for the local embedding server.
     for start in range(0, len(docs), 64):
         collection.add(

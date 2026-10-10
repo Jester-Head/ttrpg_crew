@@ -71,8 +71,8 @@ clocks:
     when_full: the Fracturers stop asking and take the player's vault access by force
 
 # Planned encounters — introduced diegetically when a trigger fires, never forced.
-# (Stat the adversaries from rules/srd/appendix_a_adversaries.md; that list is a
-# stub right now, so these are descriptive until you add the blocks.)
+# (Stat the adversaries from rules/srd/monsters_a_z.md and animals.md; these
+# are descriptive until you add the blocks.)
 encounters:
   - name: Clade Sweep
     trigger: "'The Clade Closes In' fills, or the player flaunts the vial in the Glass Spine"

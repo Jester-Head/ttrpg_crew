@@ -16,6 +16,10 @@ dependencies = [
     "pyyaml",
 ]
 
+[project.optional-dependencies]
+# Only for scripts/convert_srd.py (regenerating knowledge/rules/srd/ from the PDF).
+srd = ["pymupdf"]
+
 [project.scripts]
 run_ttrpg = "ttrpg_crew.main:run"
 

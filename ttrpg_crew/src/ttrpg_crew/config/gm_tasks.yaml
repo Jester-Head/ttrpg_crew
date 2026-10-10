@@ -76,9 +76,9 @@ _defaults:
     - Reference earlier choices when relevant; let past actions ripple into the
       current scene. Reward clever thinking; let carelessness cost naturally.
 
-    Daggerheart (when mechanics apply):
-    - Action Rolls use 2d12 Hope/Fear. State stakes before any roll.
-    - Never roll for the player. Standard DC 12, Hard 15, Very Hard 18+.
+    D&D (when mechanics apply):
+    - Checks are d20 + modifier vs a DC. State stakes before any roll.
+    - Never roll for the player. DC 10 Easy, 15 Medium, 20 Hard, 25 Very Hard.
     - Failed rolls: complications, not blocks — fail forward.
 
     Naming:
@@ -256,7 +256,7 @@ model_tiers:
         {% if recent_story %}Story so far (already happened — continue from the
         last line, stay consistent with every name, fact, and position in it;
         never re-introduce the scene): {{ recent_story }}{% endif %}
-        Player: {{ player_input }}. 2d12 Hope/Fear; stakes before rolls; fail forward.
+        Player: {{ player_input }}. d20 + modifier vs DC; stakes before rolls; fail forward.
 
     combat:
       description: >

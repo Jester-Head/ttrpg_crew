@@ -1,6 +1,6 @@
 # ttrpg_crew
 
-A solo TTRPG engine for the Daggerheart system, set in Gloamvere City (Kavath),
+A 5E-compatible solo TTRPG engine, set in Gloamvere City (Kavath),
 run by CrewAI agents against a local LLM. A Game Master agent narrates, companion
 agents play the party, and a deterministic policy decides who speaks each beat.
 Prompts adapt to the size of the loaded model, and an auditor plus editor pass
@@ -51,7 +51,7 @@ The first run indexes the lore and rules into a local vector store
 
 ## Third-party content
 
-This project includes the Daggerheart SRD under the Darrington Press Community
-Gaming License. See [NOTICE.md](NOTICE.md) for the required attribution and
-terms. The engine code and the Gloamvere City setting are original to this
+This project includes the System Reference Document 5.2.1 under the Creative
+Commons Attribution 4.0 International License. See [NOTICE.md](NOTICE.md) for
+the required attribution and terms. The engine code and the Gloamvere City setting are original to this
 project.

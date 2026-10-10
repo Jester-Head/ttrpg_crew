@@ -102,7 +102,12 @@ _OPTION_RE = re.compile(r"\(\s*[A-Da-d]\s*\)|(?:^|\n)\s*[A-D1-4][.)]\s+\S", re.M
 _MECH_RE = re.compile(
     r"\b\d+d\d+\b|\bDC\s*\d+|\broll(?:s|ed|ing)?\b|\b(?:hope|fear)\s+die\b|"
     r"\bspend(?:s|ing)?\s+(?:a\s+)?(?:hope|fear|stress)\b|"
-    r"\bmark(?:s|ing)?\s+(?:a\s+)?stress\b",
+    r"\bmark(?:s|ing)?\s+(?:a\s+)?stress\b|"
+    # D&D terms; plain-English ones (advantage, inspiration) only in game phrasing.
+    r"\bd(?:4|6|8|10|12|20|100)\b|\bAC\s*\d+\b|\bhit\s+(?:points?|dice)\b|(?-i:\bHP\b)|"
+    r"\bsaving\s+throws?\b|\bspell\s+slots?\b|\bproficiency\s+bonus\b|"
+    r"\bability\s+checks?\b|\bheroic\s+inspiration\b|"
+    r"\bspend(?:s|ing)?\s+(?:my\s+|your\s+)?inspiration\b",
     re.I,
 )
 
@@ -334,7 +339,7 @@ def audit_companion(
             Violation(
                 "mechanics_leak",
                 f"references mechanics: {_snippet(m)}",
-                suggestion="describe the intent in fiction only; drop dice, rolls, DCs, Hope/Fear/Stress",
+                suggestion="describe the intent in fiction only; drop dice, rolls, DCs, HP, AC, saves, spell slots",
             )
         )
 
