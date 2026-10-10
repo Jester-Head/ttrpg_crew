@@ -1,7 +1,8 @@
-# Third-Party Content Notice
+# Content and Licensing Notice
 
-This project's own source code is covered by the repository `LICENSE`. The
-files below are third-party content included under separate terms.
+This project's source code is covered by the repository `LICENSE` (Apache 2.0).
+The worldbuilding content and the third-party content below are under separate
+terms.
 
 ## System Reference Document 5.2.1
 
@@ -26,9 +27,16 @@ Required attribution:
 Section 5 of CC-BY-4.0 includes a Disclaimer of Warranties and Limitation of
 Liability.
 
-## Worldbuilding and engine content
+## Gloamvere City / Kavath setting
 
-All other content in this repository (the Gloamvere City / Kavath setting under
-`knowledge/lore/`, `knowledge/campaign/`, `knowledge/name_banks/`, the campaign
-sessions, and all code under `src/`) is original to this project and is not part
-of the SRD.
+The setting under `knowledge/lore/`, `knowledge/campaign/`,
+`knowledge/name_banks/` and `knowledge/sessions/` is original work by Sarah B
+and is not part of the SRD. It is licensed under the Creative Commons
+Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0), available at
+https://creativecommons.org/licenses/by-nc/4.0/. You may share and adapt it for
+non-commercial purposes with credit. Commercial use requires permission.
+
+## Engine code
+
+All code under `src/`, `scripts/` and `tests/` is original to this project and
+is licensed under the repository `LICENSE` (Apache 2.0).

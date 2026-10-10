@@ -52,9 +52,12 @@ and write your own. (Turn them off with `scene_tracker: enabled: false` in
 The first run indexes the lore and rules into a local vector store
 (`.knowledge_store/`), which takes a moment; later runs reuse it.
 
-## Third-party content
+## Licensing
 
-This project includes the System Reference Document 5.2.1 under the Creative
-Commons Attribution 4.0 International License. See [NOTICE.md](NOTICE.md) for
-the required attribution and terms. The engine code and the Gloamvere City setting are original to this
-project.
+- **Engine code:** Apache 2.0 (see [LICENSE](../LICENSE)).
+- **Gloamvere City / Kavath setting:** CC BY-NC 4.0. Free to share and adapt for
+  non-commercial use with credit.
+- **D&D rules:** this project includes the System Reference Document 5.2.1 under
+  the Creative Commons Attribution 4.0 International License.
+
+See [NOTICE.md](NOTICE.md) for the full terms and the required SRD attribution.
