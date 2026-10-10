@@ -410,7 +410,7 @@ Multiclassing allows you to gain levels in multiple classes. With this rule, you
 
 ### Prerequisites
 
-To qualify for a new class, you must have a score of at least 13 in the primary ability of the new class and your current classes. For example, a Barbarian who decides to multiclass into the Druid class must have Strength and Wisdom scores of 13 or higher,
+To qualify for a new class, you must have a score of at least 13 in the primary ability of the new class and your current classes. For example, a Barbarian who decides to multiclass into the Druid class must have Strength and Wisdom scores of 13 or higher, since Strength is the primary ability for Barbarians and Wisdom is the primary ability for Druids.
 
 **Starting Equipment at Higher Levels**
 
@@ -420,8 +420,6 @@ To qualify for a new class, you must have a score of at least 13 in the primary 
 | 5–10 | 500 GP plus 1d10 × 25 GP plus normal starting equipment | 1 Common, 1 Uncommon |
 | 11–16 | 5,000 gp plus 1d10 × 250 GP plus normal starting equipment | 2 Common, 3 Uncommon, 1 Rare |
 | 17–20 | 20,000 GP plus 1d10 × 250 GP plus normal starting equipment | 2 Common, 4 Uncommon, 3 Rare, 1 Very Rare |
-
-since Strength is the primary ability for Barbarians and Wisdom is the primary ability for Druids.
 
 ### Experience Points
 

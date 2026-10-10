@@ -248,7 +248,7 @@ Occasionally, a Proficiency Bonus might be multiplied or divided (doubled or hal
 
 Most ability checks involve using a skill, which represents a category of things creatures try to do with an ability check. The descriptions of the actions you take (see “Actions” later in “Playing the Game”) specify which skill applies if you make an ability check for that action, and many other rules note when a skill is relevant. The GM has the ultimate say on whether a skill is relevant in a situation.
 
-If a creature is proficient in a skill, the creature applies its Proficiency Bonus to ability checks involving that skill. Without proficiency in a skill, a creature can still make ability checks involving
+If a creature is proficient in a skill, the creature applies its Proficiency Bonus to ability checks involving that skill. Without proficiency in a skill, a creature can still make ability checks involving that skill but doesn’t add its Proficiency Bonus. For example, if a character tries to climb a cliff, the GM might ask for a Strength (Athletics) check. If the character has Athletics proficiency, the character adds their Proficiency Bonus to the Strength check. If the character lacks that proficiency, they make the check without adding their Proficiency Bonus.
 
 **Skills**
 
@@ -272,8 +272,6 @@ If a creature is proficient in a skill, the creature applies its Proficiency Bon
 | Sleight of Hand | Dexterity | Pick a pocket, conceal a handheld object, or perform legerdemain. |
 | Stealth | Dexterity | Escape notice by moving quietly and hiding behind things. |
 | Survival | Wisdom | Follow tracks, forage, find a trail, or avoid natural hazards. |
-
-that skill but doesn’t add its Proficiency Bonus. For example, if a character tries to climb a cliff, the GM might ask for a Strength (Athletics) check. If the character has Athletics proficiency, the character adds their Proficiency Bonus to the Strength check. If the character lacks that proficiency, they make the check without adding their Proficiency Bonus.
 
 #### Skill List
 

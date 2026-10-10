@@ -37,7 +37,7 @@ You have unearthed Eldritch Invocations, pieces of forbidden knowledge that imbu
 
 **Prerequisites.** If an invocation has a prerequisite, you must meet it to learn that invocation. For example, if an invocation requires you to be a level 5+ Warlock, you can select the invocation once you reach Warlock level 5.
 
-**Replacing and Gaining Invocations.** Whenever you gain a Warlock level, you can replace one of your invocations with another one for which you
+**Replacing and Gaining Invocations.** Whenever you gain a Warlock level, you can replace one of your invocations with another one for which you qualify. You can’t replace an invocation if it’s a prerequisite for another invocation that you have.
 
 **Warlock Features**
 
@@ -63,8 +63,6 @@ You have unearthed Eldritch Invocations, pieces of forbidden knowledge that imbu
 | 18 | +6 | — | 10 | 4 | 14 | 4 | 5 |
 | 19 | +6 | Epic Boon | 10 | 4 | 15 | 4 | 5 |
 | 20 | +6 | Eldritch Master | 10 | 4 | 15 | 4 | 5 |
-
-qualify. You can’t replace an invocation if it’s a prerequisite for another invocation that you have.
 
 When you gain certain Warlock levels, you gain more invocations of your choice, as shown in the Invocations column of the Warlock Features table.
 

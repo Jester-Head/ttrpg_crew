@@ -39,7 +39,7 @@ Drawing from your innate magic, you can cast spells. See “Spells” for the ru
 
 When you reach Sorcerer levels 4 and 10, you learn another Sorcerer cantrip of your choice, as shown in the Cantrips column of the Sorcerer Features table.
 
-**Spell Slots.** The Sorcerer Features table shows how many spell slots you have to cast your level 1+
+**Spell Slots.** The Sorcerer Features table shows how many spell slots you have to cast your level 1+ spells. You regain all expended slots when you finish a Long Rest.
 
 **Sorcerer Features**
 
@@ -65,8 +65,6 @@ When you reach Sorcerer levels 4 and 10, you learn another Sorcerer cantrip of y
 | 18 | +6 | Subclass feature | 18 | 6 | 20 | 4 | 3 | 3 | 3 | 3 | 1 | 1 | 1 | 1 |
 | 19 | +6 | Epic Boon | 19 | 6 | 21 | 4 | 3 | 3 | 3 | 3 | 2 | 1 | 1 | 1 |
 | 20 | +6 | Arcane Apotheosis | 20 | 6 | 22 | 4 | 3 | 3 | 3 | 3 | 2 | 2 | 1 | 1 |
-
-spells. You regain all expended slots when you finish a Long Rest.
 
 **Prepared Spells of Level 1+.** You prepare the list of level 1+ spells that are available for you to cast with this feature. To start, choose two level 1 Sorcerer spells. _Burning Hands_ and _Detect Magic_ are recommended.
 

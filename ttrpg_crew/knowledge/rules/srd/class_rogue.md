@@ -40,7 +40,7 @@ At Rogue level 6, you gain Expertise in two more of your skill proficiencies of 
 
 #### Level 1: Sneak Attack
 
-You know how to strike subtly and exploit a foe’s distraction. Once per turn, you can deal an extra 1d6 damage to one creature you hit with an attack
+You know how to strike subtly and exploit a foe’s distraction. Once per turn, you can deal an extra 1d6 damage to one creature you hit with an attack roll if you have Advantage on the roll and the attack uses a Finesse or a Ranged weapon. The extra damage’s type is the same as the weapon’s type.
 
 **Rogue Features**
 
@@ -66,8 +66,6 @@ You know how to strike subtly and exploit a foe’s distraction. Once per turn, 
 | 18 | +6 | Elusive | 9d6 |
 | 19 | +6 | Epic Boon | 10d6 |
 | 20 | +6 | Stroke of Luck | 10d6 |
-
-roll if you have Advantage on the roll and the attack uses a Finesse or a Ranged weapon. The extra damage’s type is the same as the weapon’s type.
 
 You don’t need Advantage on the attack roll if at least one of your allies is within 5 feet of the target, the ally doesn’t have the Incapacitated condition, and you don’t have Disadvantage on the attack roll.
 

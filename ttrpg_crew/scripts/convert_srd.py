@@ -6,10 +6,10 @@ ttrpg_crew project dir):
     pip install -e ".[srd]"          # pymupdf, only needed for this script
     python scripts/convert_srd.py path/to/SRD_CC_v5.2.1.pdf
 
-It writes one file per chapter and one per class (class_wizard.md, ...) and
-leaves the folder's README.md alone. Afterwards:
-  - update the attribution in README.md / NOTICE.md if the SRD version changed,
-  - delete .knowledge_store/ so the next run re-embeds the rules.
+It writes one file per chapter and one per class (class_wizard.md, ...),
+removes generated files the new SRD no longer has, and leaves the folder's
+README.md alone. The game re-indexes the changed rules on its next start. If
+the SRD version changed, update the attribution in README.md and NOTICE.md.
 
 Off-the-shelf PDF-to-Markdown tools scramble this PDF's two-column layout
 (tables from neighbouring columns interleave), hence the custom pass. Layout
@@ -408,24 +408,35 @@ def prose_text(ln: Line, bullet: bool, numbered: bool) -> str:
     return text
 
 
+def mid_sentence(para: str | None) -> bool:
+    """True when an open paragraph stops without closing punctuation, i.e. the
+    PDF dropped a table into the middle of a sentence that resumes after it."""
+    if not para:
+        return False
+    tail = para.rstrip().rstrip("*_").rstrip()
+    return not tail.endswith((".", ":", "!", "?", ")", "”", "’", '"'))
+
+
 def render(lines: list[Line]) -> str:
     blocks: list[str] = []
     state = {"para": None, "side": None}
     last_body: Line | None = None
     side_last: Line | None = None
-    pending_side: list[str] = []  # sidebars wait until the paragraph they interrupt ends
+    # Sidebars, and tables dropped into the middle of a sentence, wait until the
+    # paragraph they interrupt ends, so a rule never splits across retrieval chunks.
+    pending: list[str] = []
 
     def flush_side():
         if state["side"] and state["side"].strip():
-            pending_side.append("> " + tidy(state["side"]))
+            pending.append("> " + tidy(state["side"]))
         state["side"] = None
 
     def flush():
         if state["para"] and state["para"].strip():
             blocks.append(tidy(state["para"]))
         state["para"] = None
-        blocks.extend(pending_side)
-        pending_side.clear()
+        blocks.extend(pending)
+        pending.clear()
 
     i = 0
     while i < len(lines):
@@ -446,9 +457,12 @@ def render(lines: list[Line]) -> str:
             blocks.append(HEADING_MARKS[k] + " " + re.sub(r"\s+", " ", text))
             last_body = None
         elif k == "caption":
-            flush()
-            blocks.append("**" + ln.text.strip() + "**")
-            last_body = None
+            if mid_sentence(state["para"]):
+                pending.append("**" + ln.text.strip() + "**")  # keep the sentence whole
+            else:
+                flush()
+                blocks.append("**" + ln.text.strip() + "**")
+                last_body = None
         elif k == "callout":  # "Base AC = 10 + ...", species "Size:" lines
             prev = lines[i - 1] if i else None
             wraps = (prev is not None and prev.kind == "callout" and prev.side == ln.side
@@ -460,7 +474,6 @@ def render(lines: list[Line]) -> str:
                 blocks.append(tidy(styled(ln.spans)))
             last_body = None
         elif k == "cell":
-            flush()
             group = [ln]
             while i + 1 < len(lines) and lines[i + 1].kind == "cell":
                 nx = lines[i + 1]
@@ -471,8 +484,13 @@ def render(lines: list[Line]) -> str:
                     break
                 i += 1
                 group.append(nx)
-            blocks.append("\n".join(render_table(group)))
-            last_body = None
+            table = "\n".join(render_table(group))
+            if mid_sentence(state["para"]):
+                pending.append(table)  # the paragraph may continue after it
+            else:
+                flush()
+                blocks.append(table)
+                last_body = None
         elif k == "ability":
             flush()
             group = [ln]
@@ -483,7 +501,7 @@ def render(lines: list[Line]) -> str:
             last_body = None
         elif k == "sidebar_title":
             flush_side()
-            pending_side.append("> **" + re.sub(r"\s+", " ", ln.text).strip() + "**")
+            pending.append("> **" + re.sub(r"\s+", " ", ln.text).strip() + "**")
             side_last = None
             if state["para"] is None:
                 flush()
@@ -538,9 +556,9 @@ def slug(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")
 
 
-def write_chapters(md: str, out_dir: Path) -> list[Path]:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    written = []
+def split_chapters(md: str) -> dict[str, str]:
+    """{filename: markdown}, one per chapter and one per class."""
+    files: dict[str, str] = {}
     for chapter in re.split(r"(?m)^(?=# )", md):
         if not chapter.strip():
             continue
@@ -550,12 +568,25 @@ def write_chapters(md: str, out_dir: Path) -> list[Path]:
             # "Classes ▸ Wizard ▸ Level 2: Scholar".
             for part in re.split(r"(?m)^(?=## )", chapter)[1:]:
                 name = part.splitlines()[0][3:].strip()
-                path = out_dir / f"class_{slug(name)}.md"
-                path.write_text("# Classes\n\n" + part.strip() + "\n", encoding="utf-8")
-                written.append(path)
+                files[f"class_{slug(name)}.md"] = "# Classes\n\n" + part.strip() + "\n"
             continue
-        path = out_dir / f"{slug(title)}.md"
-        path.write_text(chapter.strip() + "\n", encoding="utf-8")
+        files[f"{slug(title)}.md"] = chapter.strip() + "\n"
+    return files
+
+
+def write_chapters(files: dict[str, str], out_dir: Path) -> list[Path]:
+    """Replace the generated corpus. Every .md but README.md is removed first:
+    retrieval indexes the whole folder, so a chapter a new SRD drops or renames
+    must not linger as stale rules."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for old in sorted(out_dir.glob("*.md")):
+        if old.name != "README.md" and old.name not in files:
+            print(f"removed stale {old.name}")
+            old.unlink()
+    written = []
+    for name, text in files.items():
+        path = out_dir / name
+        path.write_text(text, encoding="utf-8")
         written.append(path)
     return written
 
@@ -577,9 +608,9 @@ def main() -> None:
     for pno in range(chapters[0] - 1, doc.page_count):
         lines += order_page(page_lines(doc[pno]))
 
-    for path in write_chapters(render(lines), args.out):
+    files = split_chapters(render(lines))  # convert fully before touching the corpus
+    for path in write_chapters(files, args.out):
         print(f"{path.name:28s} {path.stat().st_size:>9,d} bytes")
-    print("Now delete .knowledge_store/ so the next run re-embeds the rules.")
 
 
 if __name__ == "__main__":
