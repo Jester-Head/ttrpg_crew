@@ -20,8 +20,8 @@ leaves your machine.
 ## Setup
 
 ```
-git clone https://github.com/Jester-Head/bioluminescent-tapestry.git
-cd bioluminescent-tapestry/ttrpg_crew
+git clone https://github.com/Jester-Head/ttrpg_crew.git
+cd ttrpg_crew/ttrpg_crew
 pip install -e .
 ```
 
