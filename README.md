@@ -55,8 +55,8 @@ The first run indexes the lore and rules into a local vector store
 ## Licensing
 
 - **Engine code:** Apache 2.0 (see [LICENSE](LICENSE)).
-- **Gloamvere City / Kavath setting:** CC BY-NC 4.0. Free to share and adapt for
-  non-commercial use with credit.
+- **Gloamvere City / Kavath setting:** all rights reserved. You're welcome to use
+  it to play the game, but not to redistribute it or use it in other works.
 - **D&D rules:** this project includes the System Reference Document 5.2.1 under
   the Creative Commons Attribution 4.0 International License.
 

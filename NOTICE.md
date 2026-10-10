@@ -31,10 +31,13 @@ Liability.
 
 The setting under `knowledge/lore/`, `knowledge/campaign/`,
 `knowledge/name_banks/` and `knowledge/sessions/` is original work by Sarah B
-and is not part of the SRD. It is licensed under the Creative Commons
-Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0), available at
-https://creativecommons.org/licenses/by-nc/4.0/. You may share and adapt it for
-non-commercial purposes with credit. Commercial use requires permission.
+and is not part of the SRD. It is not covered by the Apache 2.0 license.
+
+Copyright (c) 2025-2026 Sarah B. All rights reserved.
+
+You may use these files to run and play this game, including changing your own
+local copy for your own games. You may not redistribute or publish them, use
+them in other works, or use them commercially without written permission.
 
 ## Engine code
 
