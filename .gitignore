@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ttrpg_crew runtime data
+.knowledge_store/
+.embak/
+logs/

@@ -21,7 +21,7 @@ leaves your machine.
 
 ```
 git clone https://github.com/Jester-Head/ttrpg_crew.git
-cd ttrpg_crew/ttrpg_crew
+cd ttrpg_crew
 pip install -e .
 ```
 
@@ -54,7 +54,7 @@ The first run indexes the lore and rules into a local vector store
 
 ## Licensing
 
-- **Engine code:** Apache 2.0 (see [LICENSE](../LICENSE)).
+- **Engine code:** Apache 2.0 (see [LICENSE](LICENSE)).
 - **Gloamvere City / Kavath setting:** CC BY-NC 4.0. Free to share and adapt for
   non-commercial use with credit.
 - **D&D rules:** this project includes the System Reference Document 5.2.1 under
