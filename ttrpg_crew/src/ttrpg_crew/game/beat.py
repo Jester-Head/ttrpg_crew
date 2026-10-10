@@ -34,6 +34,10 @@ class BeatSegment:
 class Beat:
     segments: list[BeatSegment] = field(default_factory=list)
     closing_prompt: str = ""  # the hand-back line, rendered last (may be "")
+    # Next moves the player can pick instead of typing. Filled after the beat
+    # by the scene tracker; deliberately left out of str(beat), so they never
+    # enter the transcript or the story the models read.
+    suggested_actions: list[str] = field(default_factory=list)
 
     def __str__(self) -> str:
         lines = [seg.render() for seg in self.segments if seg.text]

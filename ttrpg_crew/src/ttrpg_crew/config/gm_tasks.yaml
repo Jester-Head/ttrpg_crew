@@ -118,6 +118,11 @@ narrative:
     Scene context:
     {{ scene_context }}
 
+    {% if scene_memory %}
+    Tracked so far (canon for this session; don't contradict it):
+    {{ scene_memory }}
+    {% endif %}
+
     Player action or prompt:
     {{ player_input }}
 
@@ -190,6 +195,11 @@ combat:
     Combat context:
     {{ scene_context }}
 
+    {% if scene_memory %}
+    Tracked so far (canon for this session; don't contradict it):
+    {{ scene_memory }}
+    {% endif %}
+
     Player action:
     {{ player_input }}
 
@@ -253,6 +263,7 @@ model_tiers:
     narrative:
       description: >
         Next beat. Party: {{ party_members }}. Context: {{ scene_context }}.
+        {% if scene_memory %}Tracked so far (don't contradict): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (already happened — continue from the
         last line, stay consistent with every name, fact, and position in it;
         never re-introduce the scene): {{ recent_story }}{% endif %}
@@ -261,6 +272,7 @@ model_tiers:
     combat:
       description: >
         Combat beat. Context: {{ scene_context }}. Player: {{ player_input }}.
+        {% if scene_memory %}Tracked so far (don't contradict): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (stay consistent; don't re-set the
         scene): {{ recent_story }}{% endif %}
         Tight pacing. Stakes + DC before rolls. [COMBAT: key] only when fight starts.
@@ -300,6 +312,7 @@ model_tiers:
     narrative:
       description: >
         GM beat. Player: {{ player_input }}. Scene: {{ scene_context }}.
+        {% if scene_memory %}Known: {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (continue it, stay consistent, never
         restart the scene): {{ recent_story }}{% endif %}
         Party: {{ party_members }}. Fail forward. Never narrate the player.
@@ -307,6 +320,7 @@ model_tiers:
     combat:
       description: >
         Combat. Player: {{ player_input }}. Scene: {{ scene_context }}.
+        {% if scene_memory %}Known: {{ scene_memory }}{% endif %}
         {% if recent_story %}So far: {{ recent_story }}{% endif %}
         Fast pacing. Stakes before rolls. [COMBAT: enemy] only when fight starts.
 

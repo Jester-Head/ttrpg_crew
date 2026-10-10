@@ -59,6 +59,19 @@ llm:
     temperature: 0.2       # near-deterministic; it only emits a selection
   editor:                  # AI-ism rewrite pass — keep it faithful, low-variance
     temperature: 0.3
+  tracker:                 # scene tracker (state + suggested actions) — JSON out
+    temperature: 0.3       # low for faithful state; a touch of room for varied suggestions
+
+# Scene tracker (game/scene_tracker.py): after each beat, one structured-output
+# call records objective / facts / NPCs and offers next moves the player can
+# pick by number. Runs on the moderator's model (LOCAL_MANAGER_MODEL if set).
+# Read live.
+scene_tracker:
+  enabled: true
+  suggestions: 3             # next moves offered per beat (2-4 reads well)
+  max_suggestion_chars: 90   # longer suggestions are dropped, not trimmed
+  max_facts: 12              # durable facts kept; oldest drop off first
+  max_npcs: 10               # named NPCs kept
 
 # Deterministic speaker selection (game/speaker_policy.py): how often and how
 # many companions chime in. Read live, so edits apply on the next beat.

@@ -20,6 +20,7 @@ from typing import Any
 
 from ttrpg_crew.prompts.directives import directive
 from ttrpg_crew.prompts.prompt_loader import load_task_for_game_state
+from ttrpg_crew.services.llm_call import chat_completion
 
 
 def companion_messages(
@@ -82,20 +83,7 @@ def companion_call(
     text, prompt_tokens, completion_tokens = "", None, None
 
     def _call(messages):
-        import litellm
-
-        params: dict[str, Any] = {}
-        for attr in ("temperature", "top_p", "frequency_penalty", "presence_penalty", "timeout"):
-            value = getattr(llm, attr, None)
-            if value is not None:
-                params[attr] = value
-        return litellm.completion(
-            model=getattr(llm, "model", None),
-            api_base=getattr(llm, "base_url", None),
-            api_key=getattr(llm, "api_key", None),
-            messages=messages,
-            **params,
-        )
+        return chat_completion(llm, messages)
 
     try:
         resp = None

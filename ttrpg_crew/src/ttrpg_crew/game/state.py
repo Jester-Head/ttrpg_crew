@@ -39,7 +39,14 @@ class GameState:
     location: str
     scene_type: str
     danger: str | None = None
+    # Scene memory, kept current by the scene tracker after each beat:
+    # party_goal is the immediate objective, active_npcs the named NPCs met
+    # ("Name: who they are"), known_facts the durable things established.
     party_goal: str | None = None
+    scene_summary: str = ""
+    known_facts: list[str] = field(default_factory=list)
+    # Next moves offered to the player; shown outside the prose, never in it.
+    suggested_actions: list[str] = field(default_factory=list)
     # Daggerheart Fear: the GM's single shared pool; capped at 12.
     fear: int = 0
     fear_max: int = 12
@@ -70,6 +77,9 @@ class GameState:
             "scene_type": self.scene_type,
             "danger": self.danger,
             "party_goal": self.party_goal,
+            "scene_summary": self.scene_summary,
+            "known_facts": self.known_facts,
+            "suggested_actions": self.suggested_actions,
             "fear": self.fear,
             "fear_max": self.fear_max,
             "active_npcs": self.active_npcs,
