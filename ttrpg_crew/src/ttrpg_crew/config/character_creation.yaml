@@ -133,14 +133,14 @@ personality_prompts:
 # Current canon factions (the old list — Vestige Assembly, Weaver's Conclave,
 # Eternal Ember, Cognition Collective — predates the lore rewrite).
 factions:
-  - key: spiritus_conclave
-    name: Spiritus Conclave
+  - key: myelin_conclave
+    name: Myelin Conclave
     description: "Religious order ministering to the dead and brokering memory as sacrament"
   - key: old_blood_council
     name: Old Blood Council
     description: "Aristocratic families hoarding ancestral memories in private vaults"
-  - key: siderian_clade
-    name: Siderian Clade
+  - key: sideric_clade
+    name: Sideric Clade
     description: "Industrial power refining memory into fuel and product"
   - key: hollow_flame
     name: The Hollow Flame
@@ -160,7 +160,7 @@ kavath_hooks:
     text: "A family member's True Name was stolen"
   "4":
     description: "Witnessed something terrible at a memory refinery"
-    text: "You witnessed something terrible at a Siderian Clade refinery"
+    text: "You witnessed something terrible at a Sideric Clade refinery"
   "5":
     description: "The Veil speaks to you in dreams"
     text: "The Veil speaks to you in dreams"

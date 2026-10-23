@@ -12,14 +12,14 @@ cast:
     role: patron
     drives_clock: none
     goal: >
-      Get the stolen Tinctura of her dead sister to the Spiritus Conclave to be
-      given a vessel, before the Siderian Clade reclaims and refines it.
+      Get the stolen Tinctura of her dead sister to the Myelin Conclave to be
+      given a vessel, before the Sideric Clade reclaims and refines it.
     voice: breathless, frightened, grateful to the point of tears
     state: hunted and out of time. She is the "stranger" of the opening scene
 
   - name: Damian Frost
     ancestry: Human
-    faction: Siderian Clade (Logician, Command track)
+    faction: Sideric Clade (Logician, Command track)
     role: antagonist
     drives_clock: The Clade Closes In
     goal: >
@@ -41,7 +41,7 @@ cast:
 
   - name: Clara Moree
     ancestry: Human
-    faction: Siderian Clade (Fellow, Scholar track)
+    faction: Sideric Clade (Fellow, Scholar track)
     role: ally
     drives_clock: none
     goal: >

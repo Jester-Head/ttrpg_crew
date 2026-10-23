@@ -33,7 +33,9 @@ tier_selection:
 retrieval:
   collection: ttrpg_knowledge
   sources:                 # which corpora get embedded for GM lookups
-    - "lore/*.md"
+    # Current lorebook (gitignored; fill it with scripts/sync_lore.py). The
+    # older lore/ copies predate the faction renames, so they're left out.
+    - "lore_private/*.md"
     - "rules/srd/*.md"
   chunk_chars: 1000        # target characters per chunk
   chunk_overlap: 150       # overlap carried between chunks

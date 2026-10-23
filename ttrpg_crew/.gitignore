@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 .embak/
 logs/
+
+# Current Kavath lorebook, synced by scripts/sync_lore.py; kept private
+knowledge/lore_private/
