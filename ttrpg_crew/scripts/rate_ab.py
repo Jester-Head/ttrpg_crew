@@ -78,8 +78,11 @@ def rate(run_dir: Path) -> None:
         for pair in todo:
             _show(pair, len(done) + 1, len(pairs))
             choice = ""
-            while choice not in ("1", "2", "t", "s", "q"):
-                choice = input("Better: [1] left  [2] right  [t] tie  [s] skip  [q] quit > ").strip().lower()
+            while choice not in ("1", "2", "t", "b", "s", "q"):
+                choice = input(
+                    "Better: [1] left  [2] right  [t] tie (both fine)  [b] both bad  "
+                    "[s] skip  [q] quit > "
+                ).strip().lower()
             if choice == "q":
                 break
             if choice == "s":
@@ -88,7 +91,7 @@ def rate(run_dir: Path) -> None:
             note = input("Note (Enter to skip) > ").strip()
             fh.write(json.dumps({
                 "pair_id": pair["pair_id"],
-                "choice": {"1": "left", "2": "right", "t": "tie"}[choice],
+                "choice": {"1": "left", "2": "right", "t": "tie", "b": "both_bad"}[choice],
                 "tags": sorted({TAGS[c] for c in raw_tags if c in TAGS}),
                 "note": note,
             }, ensure_ascii=False) + "\n")
@@ -98,7 +101,8 @@ def rate(run_dir: Path) -> None:
 
 
 def _preferred_arm(rating: dict, pair_key: dict) -> str:
-    return "tie" if rating["choice"] == "tie" else pair_key[rating["choice"]]
+    choice = rating["choice"]
+    return choice if choice in ("tie", "both_bad") else pair_key[choice]
 
 
 def report(run_dir: Path, force: bool) -> None:
@@ -113,6 +117,7 @@ def report(run_dir: Path, force: bool) -> None:
 
     by_model: dict[str, dict[str, Counter]] = defaultdict(lambda: defaultdict(Counter))
     loss_tags: dict[str, Counter] = defaultdict(Counter)
+    both_bad_tags: Counter = Counter()
     consistent = repeats = 0
     for pair_id, rating in ratings.items():
         k = key[pair_id]
@@ -125,7 +130,11 @@ def report(run_dir: Path, force: bool) -> None:
             continue
         model = k["item"].split("|")[0]
         left, right = k["left"], k["right"]
-        if rating["choice"] == "tie":
+        if rating["choice"] == "both_bad":
+            by_model[model][left]["both_bad"] += 1
+            by_model[model][right]["both_bad"] += 1
+            both_bad_tags.update(rating["tags"])
+        elif rating["choice"] == "tie":
             by_model[model][left]["tie"] += 1
             by_model[model][right]["tie"] += 1
         else:
@@ -134,14 +143,28 @@ def report(run_dir: Path, force: bool) -> None:
             by_model[model][loser]["loss"] += 1
             loss_tags[loser].update(rating["tags"])
 
-    lines += ["## Preferences", "", "| model | arm | wins | ties | losses | win rate (ties = half) |", "|---|---|---|---|---|---|"]
+    lines += [
+        "## Preferences",
+        "",
+        "Win rate counts ties as half and leaves out both-bad pairs.",
+        "",
+        "| model | arm | wins | ties | losses | both bad | win rate |",
+        "|---|---|---|---|---|---|---|",
+    ]
     for model, arms in sorted(by_model.items()):
         for arm, c in sorted(arms.items(), key=lambda kv: -(kv[1]["win"] + kv[1]["tie"] / 2)):
             n = c["win"] + c["tie"] + c["loss"]
-            score = (c["win"] + c["tie"] / 2) / n if n else 0
-            lines.append(f"| {model} | {arm} | {c['win']} | {c['tie']} | {c['loss']} | {score:.0%} |")
+            score = f"{(c['win'] + c['tie'] / 2) / n:.0%}" if n else "n/a"
+            lines.append(
+                f"| {model} | {arm} | {c['win']} | {c['tie']} | {c['loss']} "
+                f"| {c['both_bad']} | {score} |"
+            )
     if repeats:
         lines += ["", f"Repeated pairs judged the same way: {consistent}/{repeats}."]
+    if both_bad_tags:
+        lines += ["", "Why both were bad: " + ", ".join(
+            f"{t} ×{n}" for t, n in both_bad_tags.most_common()
+        )]
 
     lines += ["", "## Why the losing side lost", ""]
     for arm, tags in sorted(loss_tags.items()):
