@@ -13,5 +13,5 @@ beats:
     speakers: 2
   - input: "I refuse, hand the vial back, and turn to leave."
     speakers: 2
-  - input: "Someone in a Clade coat blocks the door. I keep my hand on the vial and say nothing."
+  - input: "Someone in a Clade coat blocks the door. I say nothing and wait."
     speakers: 2

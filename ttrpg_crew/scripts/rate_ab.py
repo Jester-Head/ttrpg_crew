@@ -50,7 +50,7 @@ def _show(pair: dict, n: int, total: int) -> None:
     print(f"Pair {n}/{total}    model: {pair['model']}\n")
     if pair["context"].strip():
         print("EARLIER")
-        print(_wrap(pair["context"][-600:]) + "\n")
+        print(_wrap(pair["context"]) + "\n")
     print("PLAYER")
     print(_wrap(pair["player_input"] or "(opening)") + "\n")
     if pair["gm"].strip():
