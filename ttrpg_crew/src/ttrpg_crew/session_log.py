@@ -13,6 +13,7 @@ Logging failures never break a beat.
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -23,6 +24,14 @@ _clean_path: Optional[Path] = None
 _debug_path: Optional[Path] = None
 _beat_n = 0
 _meta: dict[str, str] = {}
+_log_dir: Optional[Path] = None
+
+
+def set_log_dir(path: Path) -> None:
+    """Write this run's logs to `path` instead of <data root>/logs (or $TTRPG_LOG_DIR).
+    Call before the first beat."""
+    global _log_dir
+    _log_dir = path
 
 
 def set_meta(**fields: str) -> None:
@@ -45,7 +54,8 @@ def _ensure_open() -> None:
     except Exception:
         root = Path.cwd()
     try:
-        logs_dir = root / "logs"
+        env_dir = os.getenv("TTRPG_LOG_DIR")
+        logs_dir = _log_dir or (Path(env_dir) if env_dir else root / "logs")
         logs_dir.mkdir(parents=True, exist_ok=True)
         stamp = f"{datetime.now():%Y%m%d_%H%M%S}"
         _clean_path = logs_dir / f"session_{stamp}.md"

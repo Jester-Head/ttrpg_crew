@@ -14,7 +14,7 @@ What to read in the output, per beat:
 
 Usage (from the ttrpg_crew project dir):
     python scripts/ab_beats.py
-    TTRPG_DIRECT_COMPANIONS=1 python scripts/ab_beats.py   # direct-companion path
+    TTRPG_COMPANION_MODE=direct python scripts/ab_beats.py   # direct-companion path
 
 Edit SCENARIO to match your campaign. The Python-side sampling (name pool, style
 cues) is seeded so two runs draw the same samples; only the model/settings vary.
@@ -55,7 +55,7 @@ def main() -> None:
     flow = _build_flow()
     print(
         f"\n[ab] model={getattr(flow.llm, 'model', '?')}  tier={flow.tier}  "
-        f"direct_companions={flow.use_direct_companions}\n"
+        f"companion_mode={flow.companion_mode}\n"
     )
 
     companion_name = next(

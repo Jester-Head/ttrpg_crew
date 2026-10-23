@@ -590,6 +590,98 @@ def duplicate_companion_line(text: str, prior_lines: list[str]) -> Violation | N
     return None
 
 
+_FORMAT_LEAK_RE = re.compile(
+    r"^[\s*_]*(?:Thought|Final Answer|Action Input|Action|Observation|NOTE|SAY)[\s*_]*:"
+    r"|</?think>|```",
+    re.I | re.M,
+)
+_MARKDOWN_RE = re.compile(r"^\s*(?:#{1,6}\s|[-*•]\s+\S)|\*\*[^*\n]+\*\*", re.M)
+_QUOTED_RE = re.compile(r"\"[^\"]*\"|“[^”]*”")
+
+
+def format_leak(text: str) -> Violation | None:
+    """Scaffolding that reached the story: ReAct markers, think tags, fences."""
+    m = _FORMAT_LEAK_RE.search(text)
+    if m:
+        return Violation("format_leak", f"prompt scaffolding in output: {_snippet(m)}")
+    return None
+
+
+def assistant_speak(text: str) -> Violation | None:
+    """Chatbot phrasing or markdown formatting in an in-character line."""
+    phrases = _word_list_re("assistant_speak.txt")
+    m = phrases.search(text) if phrases else None
+    if m:
+        return Violation("assistant_speak", f"assistant phrasing: {_snippet(m)}")
+    m = _MARKDOWN_RE.search(text)
+    if m:
+        return Violation("assistant_speak", f"markdown formatting: {_snippet(m)}")
+    return None
+
+
+def acts_as_other(text: str, other_companions: tuple[str, ...]) -> list[Violation]:
+    """A companion speaking or acting for another companion.
+
+    Quoted dialogue is ignored so addressing a companion by name ("Sirra,
+    watch the door") isn't flagged.
+    """
+    violations: list[Violation] = []
+    narration = _QUOTED_RE.sub(" ", text)
+    for other in other_companions:
+        verb_re, body_re, _quote_re, line_label_re = _companion_voice_res(other)
+        for pattern in (verb_re, body_re, line_label_re):
+            m = pattern.search(narration)
+            if m:
+                violations.append(
+                    Violation("acts_as_other", f"speaks or acts for {other}: {_snippet(m)}")
+                )
+                break
+    return violations
+
+
+_TAKE_VERBS = r"(?:take|takes|took|grab|grabs|pocket|pockets|seize|seizes|snatch|snatches|pry|pries|tuck|tucks|secure|secures|pick\s+up|picks\s+up|stash|stashes)"
+_GIVE_VERBS = r"(?:give|gives|gave|hand|hands|return|returns|pass|passes|slide|slides)"
+_DETERMINER = r"(?:the|a|an|my|her|his|their|this|that|its|our|your)"
+_PLAYER_OBJECT_RE = re.compile(
+    rf"\b({_TAKE_VERBS}|{_GIVE_VERBS})\s+(?:\w+\s+)?{_DETERMINER}\s+(\w+)", re.I
+)
+_SENTENCE_RE = re.compile(r"[^.!?]+")
+
+
+def repeats_player_action(text: str, player_input: str) -> Violation | None:
+    """A companion taking or handing over the object the player just took or handed over.
+
+    Checks first-person narration only (quoted dialogue removed), one sentence at
+    a time, so "flip the vial ... then pocket it" still counts.
+    """
+    targets = {m.group(2).lower() for m in _PLAYER_OBJECT_RE.finditer(player_input)}
+    if not targets:
+        return None
+    narration = _QUOTED_RE.sub(" ", text)
+    # The verb must be the companion's own: after "I", "then", "and" or "to",
+    # with only adverbs between ("I just pocket", "to gently but firmly pry").
+    # Otherwise nouns like "the hand holding the vial" match.
+    own_verb = re.compile(
+        rf"\b(?:I|then|and|to)(?:\s+(?:\w+ly|just|also|but|then))*\s+"
+        rf"(?:{_TAKE_VERBS}|{_GIVE_VERBS})\b",
+        re.I,
+    )
+    for sentence in _SENTENCE_RE.findall(narration):
+        if not re.search(r"\bI\b", sentence) or not own_verb.search(sentence):
+            continue
+        for noun in targets:
+            if re.search(rf"\b{re.escape(noun)}s?\b", sentence, re.I):
+                return Violation(
+                    "repeats_player_action",
+                    f"handles the {noun} the player just acted on: …{sentence.strip()[:80]}…",
+                    suggestion=(
+                        "the player already did this; react to what they did "
+                        "instead of doing it yourself or undoing it"
+                    ),
+                )
+    return None
+
+
 def audit(
     label: str,
     text: str,

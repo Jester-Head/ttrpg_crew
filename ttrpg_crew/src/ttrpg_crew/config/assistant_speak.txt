@@ -1,0 +1,21 @@
+# Assistant speak: chatbot phrasing that breaks character. Checked by the A/B
+# harness (validator.assistant_speak). One phrase per line, matched whole and
+# case-insensitively. Avoid phrases characters say naturally ("of course").
+
+i'd be happy to
+i would be happy to
+happy to help
+great question
+as an ai
+as a language model
+i'm here to help
+here to assist
+how can i help
+how can i assist
+let me know if
+feel free to
+i hope this helps
+i understand your
+you're absolutely right
+in summary
+in conclusion

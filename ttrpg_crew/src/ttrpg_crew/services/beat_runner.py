@@ -1,25 +1,35 @@
 from __future__ import annotations
 
+import re
 import time
 from typing import Any, Callable
 
 from crewai import Agent, Crew, Process, Task
+from crewai.tasks.task_output import TaskOutput
 
 from ttrpg_crew import session_log
 from ttrpg_crew.game.beat import Beat, BeatSegment
 from ttrpg_crew.game.intent import BeatIntent
+from ttrpg_crew.game.speaker_policy import selection_reason
 from ttrpg_crew.game.validator import (
     audit,
     duplicate_companion_line,
     extract_closing_prompt,
     normalize_rewrite,
+    repeats_player_action,
     strip_companion_prompt,
     strip_speaker_label,
 )
 from ttrpg_crew.prompts.directives import directive
-from ttrpg_crew.prompts.prompt_loader import load_task_config, load_task_for_game_state
+from ttrpg_crew.prompts.prompt_loader import (
+    load_task_config,
+    load_task_for_game_state,
+    resolve_task_key,
+)
 from ttrpg_crew.services import direct_companions
 from ttrpg_crew.services.agent_factory import build_agent
+
+COMPANION_MODES = ("crewai", "direct", "direct_think")
 
 
 class PromptBackedBeatRunner:
@@ -34,7 +44,7 @@ class PromptBackedBeatRunner:
         editor_llm: Any = None,
         auto_retry: bool = True,
         debug: bool = False,
-        direct_companions: bool = False,
+        companion_mode: str = "crewai",
     ):
         self.gm_agent = gm_agent
         self.companion_agents = companion_agents
@@ -47,10 +57,18 @@ class PromptBackedBeatRunner:
         self.auto_retry = auto_retry
         # debug=True prints [timing]/[audit] internals; play mode keeps it quiet.
         self.debug = debug
-        # When True, companions are generated with a direct chat completion (no
-        # CrewAI Agent/ReAct wrapper), which avoids the discarded "Thought:"
-        # preamble. The GM still runs through CrewAI. A/B toggle for now.
-        self.direct_companions = direct_companions
+        # "crewai": companions share the GM's crew. "direct": plain chat
+        # completions, no ReAct wrapper. "direct_think": direct, but the model
+        # writes a private NOTE: before its SAY: line. The GM runs through
+        # CrewAI in every mode.
+        if companion_mode not in COMPANION_MODES:
+            raise ValueError(f"companion_mode must be one of {COMPANION_MODES}")
+        self.companion_mode = companion_mode
+        # Raw per-speaker outputs and think-first notes from the last beat,
+        # before audit/edit (read by the A/B harness).
+        self.last_outputs: list[tuple[str, str]] = []
+        self.last_notes: dict[str, str] = {}
+        self.last_missing_marker: set[str] = set()
 
     def run_beat(
         self,
@@ -75,8 +93,16 @@ class PromptBackedBeatRunner:
         beat_intent: BeatIntent | None = None,
         stance_hints: dict[str, str] | None = None,
         on_segment: Callable[[BeatSegment], None] | None = None,
+        gm_text: str | None = None,
+        gm_only: bool = False,
     ) -> Beat:
+        """Run one beat. `gm_text` replays a pre-generated GM frame instead of
+        calling the GM, so A/B arms can share identical narration. `gm_only`
+        runs just the GM (still told who will speak)."""
         stance_hints = stance_hints or {}
+        speakers_to_run = [] if gm_only else selected_speakers
+        self.last_notes = {}
+        self.last_missing_marker = set()
         tasks: list[Task] = []
         agents: list[Agent] = []
 
@@ -123,8 +149,11 @@ class PromptBackedBeatRunner:
         }
 
         # GM always runs through CrewAI for now (keeps its search-tool option at
-        # the large tier). Companions either share that crew (default) or, when
-        # direct_companions is on, run as plain chat completions below.
+        # the large tier). Companions either share that crew (default) or run
+        # as plain chat completions below.
+        gm_replayed = gm_should_frame_first and gm_text is not None
+        # Tasks whose output each CrewAI companion sees as context.
+        context_pool: list[Task] = []
         if gm_should_frame_first:
             gm_task_config = load_task_for_game_state(
                 "gm",
@@ -137,14 +166,23 @@ class PromptBackedBeatRunner:
                 description=gm_task_config["description"],
                 expected_output=gm_task_config["expected_output"],
                 agent=self.gm_agent,
-                callback=_timed_cb("GM"),
+                callback=None if gm_replayed else _timed_cb("GM"),
             )
+            context_pool.append(gm_task)
 
-            tasks.append(gm_task)
-            agents.append(self.gm_agent)
+            if gm_replayed:
+                # Context is read from task.output, so a replayed frame reaches
+                # CrewAI companions exactly as a live GM task's output would.
+                gm_task.output = TaskOutput(
+                    description=gm_task.description, raw=gm_text, agent=self.gm_agent.role
+                )
+                outputs.append(("GM", gm_text))
+            else:
+                tasks.append(gm_task)
+                agents.append(self.gm_agent)
 
-        if self.direct_companions:
-            # GM (if any) runs in its own crew; companions are direct calls.
+        if self.companion_mode != "crewai":
+            # GM (if live) runs in its own crew; companions are direct calls.
             if tasks:
                 gm_crew = Crew(
                     agents=agents, tasks=tasks, process=Process.sequential, verbose=False
@@ -157,10 +195,10 @@ class PromptBackedBeatRunner:
             # prior companions) so they react in context, mirroring the CrewAI
             # path's task `context`. Prompt assembly + the LLM call live in
             # services/direct_companions.py.
-            gm_text = next((text for label, text in outputs if label == "GM"), "")
-            said: list[str] = [f"GM: {gm_text}"] if gm_text else []
+            gm_frame = next((text for label, text in outputs if label == "GM"), "")
+            said: list[str] = [f"GM: {gm_frame}"] if gm_frame else []
             companion_said: list[str] = []
-            for speaker_id in selected_speakers:
+            for speaker_id in speakers_to_run:
                 merged_vars = {
                     **common_vars,
                     **self.companion_prompt_vars[speaker_id],
@@ -168,32 +206,42 @@ class PromptBackedBeatRunner:
                     "beat_directives": self._beat_directives(
                         speaker_id, beat_intent, selected_speakers, companion_said,
                         player_input=player_input,
+                        protagonist_name=protagonist_name,
                         stance_hint=stance_hints.get(speaker_id, ""),
+                        recent_story=recent_story,
                     ),
                 }
+                think_first = self.companion_mode == "direct_think"
                 system, user, name = direct_companions.companion_messages(
                     agent=self.companion_agents[speaker_id],
                     merged_vars=merged_vars,
                     game_state_name=game_state_name,
                     tier=self.tier,
                     said_so_far=said,
+                    think_first=think_first,
                 )
-                text, secs, prompt_tokens, completion_tokens = (
-                    direct_companions.companion_call(
-                        self.llm, system, user, debug=self.debug
-                    )
+                result = direct_companions.companion_call(
+                    self.llm, system, user, debug=self.debug
                 )
-                timings.append((speaker_id, secs))
+                text = result.text
+                if think_first:
+                    note, text, found = direct_companions.split_thought(text)
+                    self.last_notes[speaker_id] = note
+                    if not found:
+                        self.last_missing_marker.add(speaker_id)
+                    self._diag(f"[think] {speaker_id} note: {note or '(none)'}")
+                timings.append((speaker_id, result.seconds))
                 outputs.append((speaker_id, text))
                 said.append(f"{name}: {text}")
                 companion_said.append(f"{name}: {text}")
-                tps = (completion_tokens / secs) if (completion_tokens and secs) else 0.0
+                ct, secs = result.completion_tokens, result.seconds
+                tps = (ct / secs) if (ct and secs) else 0.0
                 self._diag(
-                    f"[direct] {speaker_id}  prompt={prompt_tokens}  "
-                    f"completion={completion_tokens}  {secs:.1f}s  {tps:.1f} tok/s"
+                    f"[direct] {speaker_id}  prompt={result.prompt_tokens}  "
+                    f"completion={ct}  {secs:.1f}s  {tps:.1f} tok/s"
                 )
         else:
-            for speaker_id in selected_speakers:
+            for speaker_id in speakers_to_run:
                 companion_agent = self.companion_agents[speaker_id]
                 companion_vars = {
                     **common_vars,
@@ -205,7 +253,9 @@ class PromptBackedBeatRunner:
                     "beat_directives": self._beat_directives(
                         speaker_id, beat_intent, selected_speakers,
                         player_input=player_input,
+                        protagonist_name=protagonist_name,
                         stance_hint=stance_hints.get(speaker_id, ""),
+                        recent_story=recent_story,
                     ),
                 }
 
@@ -220,23 +270,27 @@ class PromptBackedBeatRunner:
                     description=companion_task_config["description"],
                     expected_output=companion_task_config["expected_output"],
                     agent=companion_agent,
-                    context=tasks.copy(),
+                    context=context_pool.copy(),
                     callback=_timed_cb(speaker_id),
                 )
 
+                context_pool.append(companion_task)
                 tasks.append(companion_task)
                 agents.append(companion_agent)
 
-            crew = Crew(
-                agents=agents,
-                tasks=tasks,
-                process=Process.sequential,
-                verbose=False,
-            )
+            if tasks:
+                crew = Crew(
+                    agents=agents,
+                    tasks=tasks,
+                    process=Process.sequential,
+                    verbose=False,
+                )
 
-            clock["last"] = time.perf_counter()
-            crew.kickoff()
-            self._log_crew_tokens(crew, timings, len(tasks))
+                clock["last"] = time.perf_counter()
+                crew.kickoff()
+                self._log_crew_tokens(crew, timings, len(tasks))
+
+        self.last_outputs = list(outputs)
 
         if timings:
             parts = "  ".join(f"{label}={secs:.1f}s" for label, secs in timings)
@@ -252,6 +306,7 @@ class PromptBackedBeatRunner:
             if v.get("character_name")
         )
 
+        presence = self._presence_line(game_state_name)
         beat = Beat()
         prior_companion_lines: list[str] = []
         for label, text in outputs:
@@ -260,30 +315,19 @@ class PromptBackedBeatRunner:
                 # A trailing "What do you do?" is never the companion's to say
                 # (transcript-format echo); strip it before auditing.
                 text = strip_companion_prompt(text)
-            violations = audit(
-                label,
-                text,
+            check = dict(
                 protagonist_name=protagonist_name,
-                companions=companion_names,
-                character_name=""
-                if label == "GM"
-                else str(
-                    self.companion_prompt_vars.get(label, {}).get("character_name", label)
-                ),
+                companion_names=companion_names,
+                prior_lines=prior_companion_lines,
+                player_input=player_input,
             )
-            if label != "GM":
-                dup = duplicate_companion_line(text, prior_companion_lines)
-                if dup:
-                    violations.append(dup)
+            violations = self._violations(label, text, **check)
             for v in violations:
                 self._diag(f"[audit] {label}: {v.rule} — {v.detail}")
 
             if violations and self.auto_retry:
                 edited = self._edit_output(label, text, violations, protagonist_name)
-                remaining = audit(
-                    label, edited, protagonist_name=protagonist_name,
-                    companions=companion_names,
-                )
+                remaining = self._violations(label, edited, **check)
                 if len(remaining) < len(violations):
                     text = edited
                     fixed = len(violations) - len(remaining)
@@ -299,7 +343,7 @@ class PromptBackedBeatRunner:
             # Contract note: typing indicators will eventually need a
             # "speaker started" signal too; expect this single-event hook to
             # grow a sibling rather than treating its shape as settled.
-            segment = self._build_segment(label, text, beat)
+            segment = self._build_segment(label, text, beat, presence=presence)
             if segment and on_segment is not None:
                 try:
                     on_segment(segment)
@@ -309,18 +353,75 @@ class PromptBackedBeatRunner:
         session_log.beat(player_input.strip() or "Opening", str(beat))
         return beat
 
-    def _build_segment(self, label: str, text: str, beat: Beat) -> BeatSegment | None:
+    def _violations(
+        self,
+        label: str,
+        text: str,
+        *,
+        protagonist_name: str,
+        companion_names: tuple[str, ...],
+        prior_lines: list[str],
+        player_input: str,
+    ) -> list:
+        """Every auditor check for one output (rerun on the editor's rewrite)."""
+        if label == "GM":
+            return audit(label, text, protagonist_name=protagonist_name, companions=companion_names)
+        found = audit(
+            label,
+            text,
+            protagonist_name=protagonist_name,
+            companions=companion_names,
+            character_name=str(
+                self.companion_prompt_vars.get(label, {}).get("character_name", label)
+            ),
+        )
+        for extra in (
+            duplicate_companion_line(text, prior_lines),
+            repeats_player_action(text, player_input),
+        ):
+            if extra:
+                found.append(extra)
+        return found
+
+    def _presence_line(self, game_state_name: str) -> str:
+        """The engine-written "who is here" line for opening and resume beats.
+
+        Models skip party placement even when told to, so the engine states it.
+        """
+        if resolve_task_key("gm", game_state_name) not in ("opening_scene", "session_resume"):
+            return ""
+        names = [
+            str(v.get("character_name")).strip()
+            for v in self.companion_prompt_vars.values()
+            if v.get("character_name")
+        ]
+        if not names:
+            return ""
+        joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+        return directive("party_present", names=joined)
+
+    def _build_segment(
+        self, label: str, text: str, beat: Beat, *, presence: str = ""
+    ) -> BeatSegment | None:
         """Finalize one output into a BeatSegment appended to the beat.
 
-        GM text gets its leaked transcript label stripped and its closing
+        GM text gets its leaked transcript label stripped, its closing
         hand-back prompt lifted into beat.closing_prompt (rendered last, after
-        every companion has spoken).
+        every companion has spoken), and the presence line added unless the GM
+        already named every companion.
         """
         if label == "GM":
             text = strip_speaker_label(text, "GM")
             text, prompt = extract_closing_prompt(text)
             if prompt:
                 beat.closing_prompt = prompt
+            names = [
+                str(v.get("character_name")).split()[0]
+                for v in self.companion_prompt_vars.values()
+                if v.get("character_name")
+            ]
+            if presence and not all(re.search(rf"\b{re.escape(n)}\b", text) for n in names):
+                text = f"{text}\n\n{presence}".strip()
             if not text:
                 return None
             segment = BeatSegment("GM", "GM", text)
@@ -377,28 +478,52 @@ class PromptBackedBeatRunner:
         selected_speakers: list[str],
         said_lines: list[str] | None = None,
         player_input: str = "",
+        protagonist_name: str = "Player",
         stance_hint: str = "",
+        recent_story: str = "",
     ) -> str:
         """A code-built THIS BEAT block telling one companion what the moment is.
 
         Small models infer poorly from raw transcript, so the engine states it
-        outright: what the player's input means (intent), who else speaks, what
-        was already said, and not to echo it. WHICH lines fire is decided here;
-        the wording comes from config/directives.yaml (live-editable).
+        outright: what the player's input means (intent), why this companion
+        is speaking, who else speaks, what was already said, and not to echo
+        it. WHICH lines fire is decided here; the wording comes from
+        config/directives.yaml (live-editable).
         """
         name = self.companion_prompt_vars.get(speaker_id, {}).get("character_name", speaker_id)
         lines = [directive("header")]
+        # The player's words go in every intent line: companion task prompts
+        # carry no player_input, so without this they guess from the GM's text.
         quoted = player_input.strip()
+        if quoted and quoted[-1] not in ".!?\"'":
+            quoted += "."
+        fields = {"name": name, "player_input": quoted, "protagonist": protagonist_name}
 
         if intent is not None:
             if intent.addressed_id == speaker_id:
                 key = "direct_question" if intent.kind == "direct_question" else "direct_address"
-                lines.append(directive(key, name=name, player_input=quoted))
-            elif intent.kind in ("question", "direct_question"):
-                lines.append(directive("question"))
+                lines.append(directive(key, **fields))
+            elif intent.addressed_id:
+                lines.append(
+                    directive("addressed_other", other=intent.addressed_name or "", **fields)
+                )
+            elif intent.kind == "question":
+                lines.append(directive("question", **fields))
             elif intent.kind == "action":
-                lines.append(directive("action"))
-            if intent.situations:
+                lines.append(directive("action", **fields))
+
+            # The selector already decided this companion speaks; say why, so
+            # the model gets an angle instead of a speak-or-not judgment call.
+            # Same text window the selector scores against.
+            reason = ""
+            if intent.addressed_id != speaker_id:
+                reason = selection_reason(
+                    self.companion_prompt_vars.get(speaker_id, {}),
+                    f"{player_input}\n{recent_story[-600:]}",
+                )
+            if reason:
+                lines.append(directive("why_you", reason=reason, **fields))
+            elif intent.situations:
                 lines.append(directive("situation", situations=", ".join(intent.situations)))
 
         if stance_hint:

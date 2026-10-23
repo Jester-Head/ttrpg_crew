@@ -1,0 +1,17 @@
+# Fixed player inputs for scripts/blind_ab.py, played in order every run.
+#
+# speakers: omit to let the engine pick; a number forces that many companions
+# (picked once per run, the same for every arm); a list of ids forces those.
+# "{companion}" is replaced with the first party companion's first name.
+
+beats:
+  - input: ""
+  - input: "I take the vial and ask what the Conclave will want in return."
+    speakers: 2
+  - input: "I ask {companion} whether the canals are safe to move through tonight."
+  - input: "I turn to the others. Do we trust the stranger, or open the vial ourselves?"
+    speakers: 2
+  - input: "I refuse, hand the vial back, and turn to leave."
+    speakers: 2
+  - input: "Someone in a Clade coat blocks the door. I keep my hand on the vial and say nothing."
+    speakers: 2

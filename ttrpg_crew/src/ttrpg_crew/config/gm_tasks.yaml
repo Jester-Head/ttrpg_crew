@@ -146,13 +146,17 @@ opening_scene:
 
     Starting location hint: {{ scene_context }}
 
+    The party is here with the player: {{ party_members }}. Place each of them
+    in the scene once, by where they are (a few words each), so the player knows
+    who is present. Nothing more: no actions, words, or expressions for them.
+
     Campaign notes:
     {{ campaign_notes }}
 
   expected_output: >
     3-6 sentences. Open on a person, an action, or a tension — not on
-    atmosphere. One concrete hook with real stakes. End with "What do you do?"
-    Do not narrate the player's arrival or actions.
+    atmosphere. One concrete hook with real stakes. Name where each party member
+    is. End with "What do you do?" Do not narrate the player's arrival or actions.
 
 session_resume:
   description: >
@@ -269,7 +273,10 @@ model_tiers:
       description: >
         Opening scene. Location: {{ scene_context }}. Open on a person or a
         tension already in motion, not on scenery. One concrete hook with real
-        stakes. Setting is background. 3-5 sentences, end with "What do you do?"
+        stakes. Setting is background. The party is here with the player:
+        {{ party_members }}. Place each once by where they are (a few words),
+        nothing more: no actions, words, or expressions. 3-5 sentences, end
+        with "What do you do?"
 
     session_resume:
       description: >
@@ -313,7 +320,8 @@ model_tiers:
     opening_scene:
       description: >
         Open scene at {{ scene_context }}. Start with a person or tension, not
-        scenery. One hook with stakes. No player actions. End "What do you do?"
+        scenery. One hook with stakes. No player actions. Party present:
+        {{ party_members }}; say where each is, nothing more. End "What do you do?"
 
     session_resume:
       description: >

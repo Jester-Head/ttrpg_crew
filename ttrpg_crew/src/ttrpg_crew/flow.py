@@ -71,15 +71,20 @@ class TTRPGFlow:
         protagonist_name: str = "Player",
         debug: bool = False,
         use_llm_moderator: bool = False,
-        use_direct_companions: bool = False,
+        companion_mode: str = "crewai",
+        auto_retry: bool = True,
     ) -> None:
         # Speaker selection: deterministic by default (fast, consistent, no LLM
         # call). Set use_llm_moderator=True to fall back to the LLM manager agent
         # (richer subtext-reading, but slow and inconsistent on small models).
         self.use_llm_moderator = use_llm_moderator
-        # When True, companions skip the CrewAI Agent/ReAct wrapper and run as
-        # direct chat completions (faster, no discarded reasoning). A/B toggle.
-        self.use_direct_companions = use_direct_companions
+        # How companions are generated (see beat_runner.COMPANION_MODES).
+        self.companion_mode = companion_mode
+        # False skips the editor pass, so flagged output is kept as written.
+        self.auto_retry = auto_retry
+        # The runner and speaker selection from the most recent beat.
+        self.last_runner: PromptBackedBeatRunner | None = None
+        self.last_selection: ModeratorSelection | None = None
         # debug=True shows engine internals (agent panels, [timing]/[audit]
         # lines); play mode keeps it False so only the story is printed.
         self.debug = debug
@@ -298,7 +303,17 @@ class TTRPGFlow:
         ]
         return selection
 
-    def kickoff(self, *, player_input: str = "", on_segment: Any = None) -> Any:
+    def kickoff(
+        self,
+        *,
+        player_input: str = "",
+        on_segment: Any = None,
+        selection: ModeratorSelection | None = None,
+        gm_text: str | None = None,
+        gm_only: bool = False,
+    ) -> Any:
+        """Run one beat. `selection`, `gm_text` and `gm_only` let the A/B
+        harness give every arm identical speakers and GM narration."""
         beat_start = time.perf_counter()
         common_vars = self._common_vars(player_input=player_input)
 
@@ -311,7 +326,9 @@ class TTRPGFlow:
 
         # 4. Run the moderator to select speakers.
         moderator_start = time.perf_counter()
-        selection = self._select_speakers(common_vars)
+        if selection is None:
+            selection = self._select_speakers(common_vars)
+        self.last_selection = selection
         moderator_secs = time.perf_counter() - moderator_start
 
         # Build the agents for this beat.
@@ -352,9 +369,11 @@ class TTRPGFlow:
             tier=self.tier,
             llm=self.llm,
             editor_llm=self.editor_llm,
+            auto_retry=self.auto_retry,
             debug=self.debug,
-            direct_companions=self.use_direct_companions,
+            companion_mode=self.companion_mode,
         )
+        self.last_runner = runner
 
         # What the player's input MEANS, computed in code (no LLM call) and told
         # to the agents outright, so small models don't have to infer it.
@@ -396,6 +415,8 @@ class TTRPGFlow:
             beat_intent=beat_intent,
             stance_hints=stance_hints,
             on_segment=on_segment,
+            gm_text=gm_text,
+            gm_only=gm_only,
         )
         beat_secs = time.perf_counter() - beat_call_start
 

@@ -155,13 +155,16 @@ def _build_flow() -> TTRPGFlow:
 
     # Companions run through the CrewAI agent loop by default — in play-testing
     # it produced richer in-scene interplay than the direct path. Set
-    # TTRPG_DIRECT_COMPANIONS=1 for direct chat completions instead (no ReAct
-    # preamble; measured ~7x fewer completion tokens — the fast option). The GM
-    # is on CrewAI either way.
-    use_direct_companions = _env_flag("TTRPG_DIRECT_COMPANIONS", default=False)
+    # TTRPG_COMPANION_MODE=direct (or the older TTRPG_DIRECT_COMPANIONS=1) for
+    # direct chat completions instead (no ReAct preamble; measured ~7x fewer
+    # completion tokens), or direct_think for direct with a private note first.
+    # The GM is on CrewAI either way.
+    companion_mode = (os.getenv("TTRPG_COMPANION_MODE") or "").strip().lower() or (
+        "direct" if _env_flag("TTRPG_DIRECT_COMPANIONS", default=False) else "crewai"
+    )
 
     if debug:
-        print(f"[ttrpg] direct_companions={use_direct_companions}")
+        print(f"[ttrpg] companion_mode={companion_mode}")
 
     # Stamp run metadata into the session log headers so each transcript says
     # which model/settings produced it (essential when comparing models).
@@ -170,7 +173,7 @@ def _build_flow() -> TTRPGFlow:
         tier=tier,
         manager_model=manager_model_id or model_id,
         editor_model=editor_model_id or model_id,
-        direct_companions=use_direct_companions,
+        companion_mode=companion_mode,
     )
 
     return TTRPGFlow(
@@ -180,7 +183,7 @@ def _build_flow() -> TTRPGFlow:
         tier=tier,
         debug=debug,
         use_llm_moderator=use_llm_moderator,
-        use_direct_companions=use_direct_companions,
+        companion_mode=companion_mode,
     )
 
 

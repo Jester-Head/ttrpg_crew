@@ -6,7 +6,10 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "crewai",
     "crewai-tools",
-    "litellm",
+    # CrewAI routes local models through litellm. 1.82.7 and 1.82.8 were
+    # compromised on PyPI; 1.83.0 is the first clean release after them.
+    "litellm>=1.83.0",
+    "openai",
     "pydantic",
     "python-dotenv",
     # Imported directly by the engine; also pulled in by crewai, but declared
