@@ -19,6 +19,12 @@ def test_split_thought_handles_bold_markers():
     assert (note, line, found) == ("wary", "I step back.", True)
 
 
+def test_split_thought_handles_bare_say_line():
+    note, line, found = split_thought('NOTE: wary\nSAY\n"I\'m not asking about safety," I say.')
+    assert (note, line, found) == ("wary", '"I\'m not asking about safety," I say.', True)
+    assert split_thought("SAY\nI step back.")[1:] == ("I step back.", True)
+
+
 def test_split_thought_drops_note_without_say_marker():
     note, line, found = split_thought('NOTE: annoyed\n\n"Fine. Lead on."')
     assert (note, line, found) == ("annoyed", '"Fine. Lead on."', False)

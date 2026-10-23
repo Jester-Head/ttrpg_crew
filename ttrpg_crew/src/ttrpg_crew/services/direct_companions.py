@@ -12,8 +12,9 @@ from ttrpg_crew.prompts.directives import directive
 from ttrpg_crew.prompts.prompt_loader import load_task_for_game_state
 from ttrpg_crew.services import llm_client
 
-# Models bold or indent the markers, so match them loosely.
-_SAY_RE = re.compile(r"^[\s*_]*SAY[\s*_]*:[\s*_]*", re.I | re.M)
+# Models bold or indent the markers, and sometimes drop the colon (a bare
+# "SAY" line), so match them loosely.
+_SAY_RE = re.compile(r"^[\s*_]*SAY[\s*_]*(?::[\s*_]*|$\n?)", re.I | re.M)
 _NOTE_RE = re.compile(r"^[\s*_]*NOTE[\s*_]*:[\s*_]*", re.I)
 
 
