@@ -86,3 +86,8 @@ def test_trim_runaway_stops_a_looping_gm_after_its_first_prompt():
 def test_trim_runaway_cuts_a_long_companion_line_at_a_sentence():
     text = trim_runaway("I wait. " * 400, is_gm=False)
     assert len(text) <= 1200 and text.endswith(".")
+
+
+def test_trim_runaway_keeps_a_prompt_spoken_by_an_npc():
+    text = 'Frost leans in. "What do you do now, courier?" The door bangs.\n\nWhat do you do?'
+    assert trim_runaway(text, is_gm=True) == text

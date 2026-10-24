@@ -246,7 +246,9 @@ def extract_closing_prompt(text: str) -> tuple[str, str]:
     return text[: m.start()].rstrip(), m.group(0).strip(' "*_\n')
 
 
-_FIRST_PROMPT_RE = re.compile(CLOSING_PROMPT_WORDS + r"[\s*_]*\??[\s*_]*", re.I)
+_STANDALONE_PROMPT_RE = re.compile(
+    r"^[ \t*_]*" + CLOSING_PROMPT_WORDS + r"[ \t*_]*\??[ \t*_]*$", re.I | re.M
+)
 _SENTENCE_END_RE = re.compile(r"[.!?][\"”'*_)\]]*(?=\s|$)")
 _RUNAWAY_MAX_CHARS = {"GM": 3000, "companion": 1200}
 
@@ -256,12 +258,12 @@ def trim_runaway(text: str, *, is_gm: bool) -> str:
 
     Local models sometimes repeat a whole block dozens of times, which also
     overflows the next speaker's context. GM text with more than one hand-back
-    prompt stops after the first (a single one may be an NPC's line, so it's
-    left alone), repeated paragraphs are dropped, and anything still too long
+    prompt on a line of its own stops after the first (prompts inside dialogue
+    don't count), repeated paragraphs are dropped, and anything still too long
     is cut at the last sentence end inside the limit.
     """
     if is_gm:
-        prompts = list(_FIRST_PROMPT_RE.finditer(text))
+        prompts = list(_STANDALONE_PROMPT_RE.finditer(text))
         if len(prompts) > 1:
             text = text[: prompts[0].end()]
     kept, seen = [], set()
