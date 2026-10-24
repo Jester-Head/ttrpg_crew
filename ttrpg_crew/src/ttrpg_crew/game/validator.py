@@ -246,6 +246,39 @@ def extract_closing_prompt(text: str) -> tuple[str, str]:
     return text[: m.start()].rstrip(), m.group(0).strip(' "*_\n')
 
 
+_FIRST_PROMPT_RE = re.compile(CLOSING_PROMPT_WORDS + r"[\s*_]*\??[\s*_]*", re.I)
+_SENTENCE_END_RE = re.compile(r"[.!?][\"”'*_)\]]*(?=\s|$)")
+_RUNAWAY_MAX_CHARS = {"GM": 3000, "companion": 1200}
+
+
+def trim_runaway(text: str, *, is_gm: bool) -> str:
+    """Cut a looping or runaway generation down to its first pass.
+
+    Local models sometimes repeat a whole block dozens of times, which also
+    overflows the next speaker's context. GM text with more than one hand-back
+    prompt stops after the first (a single one may be an NPC's line, so it's
+    left alone), repeated paragraphs are dropped, and anything still too long
+    is cut at the last sentence end inside the limit.
+    """
+    if is_gm:
+        prompts = list(_FIRST_PROMPT_RE.finditer(text))
+        if len(prompts) > 1:
+            text = text[: prompts[0].end()]
+    kept, seen = [], set()
+    for para in re.split(r"\n\s*\n", text):
+        key = " ".join(para.lower().split())
+        if key and key in seen:
+            continue
+        seen.add(key)
+        kept.append(para)
+    text = "\n\n".join(kept).strip()
+    limit = _RUNAWAY_MAX_CHARS["GM" if is_gm else "companion"]
+    if len(text) <= limit:
+        return text
+    ends = [m.end() for m in _SENTENCE_END_RE.finditer(text, 0, limit)]
+    return text[: ends[-1]] if ends else text[:limit]
+
+
 def strip_companion_prompt(text: str) -> str:
     """Remove a trailing hand-back prompt from a companion's output.
 
@@ -641,6 +674,12 @@ def acts_as_other(text: str, other_companions: tuple[str, ...]) -> list[Violatio
 
 _TAKE_VERBS = r"(?:take|takes|took|grab|grabs|pocket|pockets|seize|seizes|snatch|snatches|pry|pries|tuck|tucks|secure|secures|pick\s+up|picks\s+up|stash|stashes)"
 _GIVE_VERBS = r"(?:give|gives|gave|hand|hands|return|returns|pass|passes|slide|slides)"
+# Handling the object without taking it still undercuts the player.
+_HANDLE_VERBS = (
+    r"(?:examine|examines|inspect|inspects|tap|taps|uncork|uncorks|unstopper|unstoppers|"
+    r"open|opens|check|checks|flip|flips|cradle|cradles|turn\s+over|turns\s+over|"
+    r"hold\s+up|holds\s+up)"
+)
 _DETERMINER = r"(?:the|a|an|my|her|his|their|this|that|its|our|your)"
 _PLAYER_OBJECT_RE = re.compile(
     rf"\b({_TAKE_VERBS}|{_GIVE_VERBS})\s+(?:\w+\s+)?{_DETERMINER}\s+(\w+)", re.I
@@ -649,7 +688,7 @@ _SENTENCE_RE = re.compile(r"[^.!?]+")
 
 
 def repeats_player_action(text: str, player_input: str) -> Violation | None:
-    """A companion taking or handing over the object the player just took or handed over.
+    """A companion taking, handing over or handling the object the player just acted on.
 
     Checks first-person narration only (quoted dialogue removed), one sentence at
     a time, so "flip the vial ... then pocket it" still counts.
@@ -663,7 +702,7 @@ def repeats_player_action(text: str, player_input: str) -> Violation | None:
     # Otherwise nouns like "the hand holding the vial" match.
     own_verb = re.compile(
         rf"\b(?:I|then|and|to)(?:\s+(?:\w+ly|just|also|but|then))*\s+"
-        rf"(?:{_TAKE_VERBS}|{_GIVE_VERBS})\b",
+        rf"(?:{_TAKE_VERBS}|{_GIVE_VERBS}|{_HANDLE_VERBS})\b",
         re.I,
     )
     for sentence in _SENTENCE_RE.findall(narration):

@@ -28,8 +28,12 @@ def _extra_body(llm: Any) -> dict[str, Any] | None:
     return extra if isinstance(extra, dict) else None
 
 
-def chat(llm: Any, messages: list[dict[str, str]]) -> ChatResult:
-    """One chat completion using the connection and sampling settings of `llm`."""
+def chat(llm: Any, messages: list[dict[str, str]], *, max_tokens: int | None = None) -> ChatResult:
+    """One chat completion using the connection and sampling settings of `llm`.
+
+    `max_tokens` is safe here; it's only the CrewAI agent path that returns
+    empty replies when it's set (see models.yaml).
+    """
     from openai import OpenAI
 
     client = OpenAI(
@@ -45,6 +49,8 @@ def chat(llm: Any, messages: list[dict[str, str]]) -> ChatResult:
     extra = _extra_body(llm)
     if extra:
         params["extra_body"] = extra
+    if max_tokens:
+        params["max_tokens"] = max_tokens
 
     start = time.perf_counter()
     resp = client.chat.completions.create(model=_model_id(llm), messages=messages, **params)

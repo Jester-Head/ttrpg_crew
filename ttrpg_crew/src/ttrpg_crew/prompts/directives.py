@@ -31,6 +31,7 @@ _DEFAULTS: dict[str, str] = {
         "Don't answer for {other}."
     ),
     "question": '- {protagonist} asked: "{player_input}"',
+    "answer_first": '{protagonist} asked you: "{player_input}" Answer that first, in character.',
     "why_you": (
         "- You're speaking because the moment involves {reason}. Say what "
         "{name} would add from that angle."

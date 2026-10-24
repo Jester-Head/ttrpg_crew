@@ -69,3 +69,10 @@ def test_words_addressed_to_another_companion_are_quoted():
     text = _directives(intent, "Braynstorm, are the canals safe?")
     assert "Braynstorm" in text
     assert '"Braynstorm, are the canals safe?"' in text
+
+
+def test_direct_question_gets_the_answer_first_line():
+    intent = BeatIntent(kind="direct_question", addressed_id="sirra", addressed_name="Sirra")
+    line = _runner()._answer_first("sirra", intent, "Sirra, are the canals safe?", "Shimoda")
+    assert line.startswith('Shimoda asked you: "Sirra, are the canals safe?"')
+    assert _runner()._answer_first("bray", intent, "Sirra, are the canals safe?", "Shimoda") == ""

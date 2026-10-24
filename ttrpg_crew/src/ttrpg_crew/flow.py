@@ -425,7 +425,11 @@ class TTRPGFlow:
         self._update_turn_counts(selection.selected_speakers)
         if player_input.strip():
             self.transcript.append(self.protagonist_name, player_input.strip())
-        self.transcript.append("GM", str(result))
+        # One entry per speaker: a single "GM:" entry for the whole beat came
+        # out empty when the GM was skipped, and the next GM read that as a
+        # scene it had to explain.
+        for segment in result.segments:
+            self.transcript.append(segment.speaker_name, segment.text)
         self._advance_scene(str(result))
 
         n_speakers = len(selection.selected_speakers)

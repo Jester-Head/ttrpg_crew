@@ -5,6 +5,7 @@ from ttrpg_crew.game.validator import (
     assistant_speak,
     format_leak,
     repeats_player_action,
+    trim_runaway,
 )
 from ttrpg_crew.services.direct_companions import split_thought
 
@@ -68,3 +69,20 @@ def test_repeats_player_action_ignores_dialogue_and_looking():
 def test_acts_as_other_flags_narrating_another_companion():
     rules = [v.rule for v in acts_as_other("Sirra nods and draws her knife.", ("Sirra",))]
     assert rules == ["acts_as_other"]
+
+
+def test_repeats_player_action_flags_handling_the_players_vial():
+    player = "I take the vial and ask what the Conclave will want."
+    assert repeats_player_action("I check the vial's seal with my stylus.", player)
+    assert repeats_player_action("I uncork the vial and let a wisp escape.", player)
+
+
+def test_trim_runaway_stops_a_looping_gm_after_its_first_prompt():
+    block = "Frost waits by the door.\n\n**What do you do?**\n\n***\n\n"
+    text = trim_runaway(block * 30, is_gm=True)
+    assert text.count("What do you do?") == 1
+
+
+def test_trim_runaway_cuts_a_long_companion_line_at_a_sentence():
+    text = trim_runaway("I wait. " * 400, is_gm=False)
+    assert len(text) <= 1200 and text.endswith(".")

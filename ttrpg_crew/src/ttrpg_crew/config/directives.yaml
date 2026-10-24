@@ -19,6 +19,9 @@ direct_address: '- The player is speaking directly to YOU ({name}): "{player_inp
 addressed_other: "- {protagonist} is speaking to {other}, not you: \"{player_input}\" Don't answer for {other}."
 question: '- {protagonist} asked: "{player_input}"'
 action: "- {protagonist} just did this: \"{player_input}\" React to THAT. It's their decision: you can object, but don't undo it, repeat it, or act as if it didn't happen."
+# Repeated as the last line of the prompt when the player asked this companion
+# directly, so the question isn't lost under the scene.
+answer_first: '{protagonist} asked you: "{player_input}" Answer that first, in character.'
 # Why the engine picked this companion; replaces `situation` when it fires.
 why_you: "- You're speaking because the moment involves {reason}. Say what {name} would add from that angle."
 situation: "- Situation: {situations}."

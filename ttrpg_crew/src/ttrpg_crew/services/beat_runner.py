@@ -19,6 +19,7 @@ from ttrpg_crew.game.validator import (
     repeats_player_action,
     strip_companion_prompt,
     strip_speaker_label,
+    trim_runaway,
 )
 from ttrpg_crew.prompts.directives import directive
 from ttrpg_crew.prompts.prompt_loader import (
@@ -30,6 +31,12 @@ from ttrpg_crew.services import direct_companions
 from ttrpg_crew.services.agent_factory import build_agent
 
 COMPANION_MODES = ("crewai", "direct", "direct_think")
+
+
+def _quoted(player_input: str) -> str:
+    """The player's words, ending in punctuation, for quoting inside a prompt line."""
+    text = player_input.strip()
+    return text + "." if text and text[-1] not in ".!?\"'" else text
 
 
 class PromptBackedBeatRunner:
@@ -118,7 +125,12 @@ class PromptBackedBeatRunner:
                 now = time.perf_counter()
                 timings.append((label, now - clock["last"]))
                 clock["last"] = now
-                outputs.append((label, getattr(output, "raw", str(output))))
+                text = trim_runaway(getattr(output, "raw", str(output)), is_gm=label == "GM")
+                # Later tasks read their context from this same object, so the
+                # trim also keeps a runaway out of the next companion's prompt.
+                if hasattr(output, "raw"):
+                    output.raw = text
+                outputs.append((label, text))
 
             return cb
 
@@ -219,6 +231,9 @@ class PromptBackedBeatRunner:
                     tier=self.tier,
                     said_so_far=said,
                     think_first=think_first,
+                    closing=self._answer_first(
+                        speaker_id, beat_intent, player_input, protagonist_name
+                    ),
                 )
                 result = direct_companions.companion_call(
                     self.llm, system, user, debug=self.debug
@@ -230,6 +245,7 @@ class PromptBackedBeatRunner:
                     if not found:
                         self.last_missing_marker.add(speaker_id)
                     self._diag(f"[think] {speaker_id} note: {note or '(none)'}")
+                text = trim_runaway(text, is_gm=False)
                 timings.append((speaker_id, result.seconds))
                 outputs.append((speaker_id, text))
                 said.append(f"{name}: {text}")
@@ -268,7 +284,14 @@ class PromptBackedBeatRunner:
 
                 companion_task = Task(
                     description=companion_task_config["description"],
-                    expected_output=companion_task_config["expected_output"],
+                    expected_output="\n\n".join(
+                        part for part in (
+                            companion_task_config["expected_output"],
+                            self._answer_first(
+                                speaker_id, beat_intent, player_input, protagonist_name
+                            ),
+                        ) if part
+                    ),
                     agent=companion_agent,
                     context=context_pool.copy(),
                     callback=_timed_cb(speaker_id),
@@ -471,6 +494,23 @@ class PromptBackedBeatRunner:
         ]
         return ", ".join([protagonist_name] + others)
 
+    def _answer_first(
+        self,
+        speaker_id: str,
+        intent: BeatIntent | None,
+        player_input: str,
+        protagonist_name: str,
+    ) -> str:
+        """The player's direct question again, placed last in the prompt.
+
+        Stated only inside the THIS BEAT block, it gets lost under the scene
+        and the companion talks about something else."""
+        if intent is None or intent.addressed_id != speaker_id or intent.kind != "direct_question":
+            return ""
+        return directive(
+            "answer_first", protagonist=protagonist_name, player_input=_quoted(player_input)
+        )
+
     def _beat_directives(
         self,
         speaker_id: str,
@@ -494,10 +534,11 @@ class PromptBackedBeatRunner:
         lines = [directive("header")]
         # The player's words go in every intent line: companion task prompts
         # carry no player_input, so without this they guess from the GM's text.
-        quoted = player_input.strip()
-        if quoted and quoted[-1] not in ".!?\"'":
-            quoted += "."
-        fields = {"name": name, "player_input": quoted, "protagonist": protagonist_name}
+        fields = {
+            "name": name,
+            "player_input": _quoted(player_input),
+            "protagonist": protagonist_name,
+        }
 
         if intent is not None:
             if intent.addressed_id == speaker_id:

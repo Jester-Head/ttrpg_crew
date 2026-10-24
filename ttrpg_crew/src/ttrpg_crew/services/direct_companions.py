@@ -26,6 +26,7 @@ def companion_messages(
     tier: str | None,
     said_so_far: list[str],
     think_first: bool = False,
+    closing: str = "",
 ) -> tuple[str, str, str]:
     """Assemble (system, user, display_name) for one direct companion call.
 
@@ -54,6 +55,8 @@ def companion_messages(
     user_parts.append(cfg["description"].strip())
     if (cfg.get("expected_output") or "").strip():
         user_parts.append("Output: " + cfg["expected_output"].strip())
+    if closing:
+        user_parts.append(closing)
     user_parts.append(directive("think_first" if think_first else "respond_now", name=name))
     return system, "\n\n".join(user_parts), name
 
@@ -90,7 +93,9 @@ def companion_call(
         {"role": "user", "content": user},
     ]
     try:
-        return llm_client.chat(llm, messages)
+        # Stops a runaway early; a 2-5 sentence line plus a think-first note
+        # fits well inside this.
+        return llm_client.chat(llm, messages, max_tokens=600)
     except Exception as exc:
         if debug:
             print(f"[direct] chat completion failed ({exc}); using llm.call")
