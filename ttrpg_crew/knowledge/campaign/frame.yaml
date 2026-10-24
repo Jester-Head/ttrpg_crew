@@ -29,8 +29,9 @@ premise: |
   You are a Canalborne courier: a neutral carrier of corked memory-vials between
   districts that trust no one else's messengers. You go everywhere and belong
   nowhere, which is exactly why everyone uses you. But the work has marked you.
-  You have begun to Fray, the first stage of the Dreg Condition. The only hope on
-  record is Fellow Clara Moree, the single soul ever to come back.
+  You are Faded now, managing the gaps one rung down from Sound, and the slide
+  does not reverse on its own. The only hope on record is Fellow Clara Moree,
+  the single soul ever to come back from Rendering.
 
 # Where and how the story opens. The GM frames the first scene from this.
 opening:
@@ -58,10 +59,10 @@ beats:
 # Clocks: looming threats that advance on their own (faster when the player
 # stalls or derails). When a clock fills, its consequence fires.
 clocks:
-  - name: The Fraying
+  - name: The Slide
     segments: 6
     advances_when: the player overexerts, handles high-tier memory, or marks Stress
-    when_full: they slip from Fraying into Eroding (Dreg Condition, stage 2)
+    when_full: they drop a rung, from Faded to Lapsed
   - name: The Clade Closes In
     segments: 4
     advances_when: the player lingers, is recognized, or shows the vial in Clade ground
@@ -89,4 +90,4 @@ pacing:
     When the player engages a beat, ease off and follow them. When they stall or
     derail, advance a clock and let the consequence pull them back. Introduce
     combat through triggers and fiction (a clock filling, a line crossed), never
-    as a non-sequitur. Keep the Fraying personal: every cost lands on the player.
+    as a non-sequitur. Keep the slide personal: every cost lands on the player.
