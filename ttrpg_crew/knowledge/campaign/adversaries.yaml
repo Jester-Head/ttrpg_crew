@@ -47,7 +47,7 @@ adversaries:
     attack_bonus: 1
     damage: "1d4"
     difficulty: 10
-    description: "Small automated construct running on residual spiritus charge."
+    description: "Small automated construct running on a residual charge of refined memory."
 
   old_blood_zealot:
     # TODO(canon): was "old_blood_cultist" — current canon has the Old Blood
@@ -68,7 +68,7 @@ adversaries:
     attack_bonus: 4
     damage: "2d6+4"
     difficulty: 14
-    description: "Massive construct built from industrial machinery and bound spiritus."
+    description: "Massive construct built from industrial machinery and fueled by refined memory."
 
   masked_assassin:
     # TODO(canon): was "weaver_assassin" (Weaver's Conclave) — the Myelin

@@ -61,7 +61,7 @@ _SITUATION_KEYWORDS: dict[str, tuple[str, ...]] = {
     "negotiation": ("deal", "bargain", "price", "pay", "trade", "offer", "debt", "owe", "coin"),
     "moral_dilemma": ("choice", "decide", "spare", "betray", "sacrifice", "refuse", "grief", "mercy", "help", "save", "suffer"),
     "memory": ("memory", "tinctura", "vial", "extract", "refine", "calcine", "fray", "dreg", "quintessa"),
-    "supernatural": ("veil", "spirit", "spiritus", "thin spot", "drift", "ghost", "rite"),
+    "supernatural": ("veil", "spirit", "thin spot", "drift", "ghost", "rite"),
 }
 
 

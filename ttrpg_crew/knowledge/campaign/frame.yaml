@@ -61,7 +61,7 @@ beats:
 clocks:
   - name: The Slide
     segments: 6
-    advances_when: the player overexerts, handles high-tier memory, or marks Stress
+    advances_when: the player sells a memory, takes a graft, or suffers acute memory damage
     when_full: they drop a rung, from Faded to Lapsed
   - name: The Clade Closes In
     segments: 4
