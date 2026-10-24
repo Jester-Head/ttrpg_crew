@@ -3,6 +3,7 @@
 Usage (from the ttrpg_crew project dir):
     python scripts/rate_ab.py logs/ab_<timestamp>            # rate (resumes where you stopped)
     python scripts/rate_ab.py logs/ab_<timestamp> --report   # unblind once everything is rated
+    python scripts/rate_ab.py logs/ab_<timestamp> --report --ratings second_rater_ratings.jsonl
 """
 
 from __future__ import annotations
@@ -105,15 +106,15 @@ def _preferred_arm(rating: dict, pair_key: dict) -> str:
     return choice if choice in ("tie", "both_bad") else pair_key[choice]
 
 
-def report(run_dir: Path, force: bool) -> None:
+def report(run_dir: Path, force: bool, ratings_file: str = "ratings.jsonl") -> None:
     pairs = _load_jsonl(run_dir / "blind" / "pairs.jsonl")
-    ratings = {r["pair_id"]: r for r in _load_jsonl(run_dir / "blind" / "ratings.jsonl")}
+    ratings = {r["pair_id"]: r for r in _load_jsonl(run_dir / "blind" / ratings_file)}
     if len(ratings) < len(pairs) and not force:
         sys.exit(f"Only {len(ratings)}/{len(pairs)} pairs rated. Finish rating, or pass --force.")
     key = json.loads((run_dir / "private" / "key.json").read_text(encoding="utf-8"))
     results = _load_jsonl(run_dir / "private" / "results.jsonl")
 
-    lines = [f"# Blind A/B report: {run_dir.name}", ""]
+    lines = [f"# Blind A/B report: {run_dir.name} ({ratings_file})", ""]
 
     by_model: dict[str, dict[str, Counter]] = defaultdict(lambda: defaultdict(Counter))
     loss_tags: dict[str, Counter] = defaultdict(Counter)
@@ -188,7 +189,7 @@ def report(run_dir: Path, force: bool) -> None:
         avg = sum(s["secs"]) / len(s["secs"]) if s["secs"] else 0
         lines.append(f"| {model} | {arm} | {s['lines']} | {s['flagged']} | {top} | {avg:.0f}s | {s['missing']} |")
 
-    out = run_dir / "report.md"
+    out = run_dir / f"report_{Path(ratings_file).stem}.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
     print(f"\nSaved to {out}")
@@ -199,9 +200,13 @@ def main() -> None:
     parser.add_argument("run_dir", type=Path)
     parser.add_argument("--report", action="store_true", help="unblind and summarize")
     parser.add_argument("--force", action="store_true", help="report before every pair is rated")
+    parser.add_argument(
+        "--ratings", default="ratings.jsonl",
+        help="ratings file in blind/ to unblind (e.g. a second rater's)",
+    )
     args = parser.parse_args()
     if args.report:
-        report(args.run_dir, args.force)
+        report(args.run_dir, args.force, args.ratings)
     else:
         rate(args.run_dir)
 
