@@ -38,8 +38,9 @@ opening:
   situation: >
     A stranger with a fraying coat and frightened eyes presses a sealed,
     cold-to-the-touch vial into your hands and begs you to courier it to the
-    Myelin Conclave before dawn, no questions, for double the usual fee. They
-    do not say what is in it, only that the Sideric Clade must never get it back.
+    Myelin Conclave before the lantern towers turn, no questions, for double
+    the usual fee. They do not say what is in it, only that the Sideric Clade
+    must never get it back.
 
 # The dramatic question the campaign turns on.
 premise_hook: >
@@ -51,7 +52,7 @@ beats:
   - The Clade discovers the memory is gone and begins hunting the courier who took it.
   - The Hollow Flame offers protection in exchange for the player's cross-faction access.
   - The vial's memory proves to matter to more than its owner; the Clade fears it.
-  - The player seeks Fellow Clara Moree, the only soul to recover from Calcination.
+  - The player seeks Fellow Clara Moree, the only person ever to come back from Rendering.
   - A final choice: deliver, keep, destroy, or trade the memory and pay what it costs.
 
 # Clocks: looming threats that advance on their own (faster when the player

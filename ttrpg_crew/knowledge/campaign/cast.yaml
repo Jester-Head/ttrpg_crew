@@ -45,7 +45,7 @@ cast:
     role: ally
     drives_clock: none
     goal: >
-      Continue her Calcination-reversal research; she is the only person to come
+      Continue her Rendering-reversal research; she is the only person to come
       back from the Dreg, and the player's one real hope against the Fraying.
     voice: careful, weary, guardedly hopeful
     state: indispensable to Command yet distrusted by her own track; hard to reach
