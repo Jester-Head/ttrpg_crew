@@ -4,6 +4,7 @@ and the outputs become shuffled, unlabeled pairs for scripts/rate_ab.py.
 Usage (from the ttrpg_crew project dir):
     python scripts/blind_ab.py model-a model-b --runs 3
     python scripts/blind_ab.py --no-load --runs 1     # use the model already loaded
+    python scripts/blind_ab.py model-a model-b --resume logs/ab_<timestamp>   # finish a crashed run
 
 Writes logs/ab_<timestamp>/:
     blind/pairs.jsonl    what you rate (no arm names)
@@ -141,7 +142,11 @@ def run_model(model: str, modes: list[str], runs: int, beats: list[dict]) -> lis
             forced = _forced_selection(spec.get("speakers"), roster, random.Random(seed))
 
             random.seed(seed)
-            gm_beat = gm_flow.kickoff(player_input=player_input, selection=forced, gm_only=True)
+            try:
+                gm_beat = gm_flow.kickoff(player_input=player_input, selection=forced, gm_only=True)
+            except Exception as exc:
+                print(f"[ab] {model} run {run} beat {index}: GM failed, beat skipped ({exc!s:.200})", flush=True)
+                continue
             selection = gm_flow.last_selection
             gm_raw = None
             if selection.gm_should_frame_first:
@@ -159,8 +164,16 @@ def run_model(model: str, modes: list[str], runs: int, beats: list[dict]) -> lis
 
             arms = {}
             for mode in random.Random(seed).sample(modes, len(modes)):
-                arms[mode] = run_arm(arm_flows[mode], mode, player_input, selection, gm_raw, seed)
-                print(f"[ab] {model} run {run} beat {index} arm done", flush=True)
+                try:
+                    arms[mode] = run_arm(arm_flows[mode], mode, player_input, selection, gm_raw, seed)
+                    print(f"[ab] {model} run {run} beat {index} arm done", flush=True)
+                except Exception as exc:
+                    # One runaway generation shouldn't end the run. The failed
+                    # arm has no segments, so its pairs are left out. The
+                    # console line doesn't name the arm, to keep the run blind.
+                    arms[mode] = {"mode": mode, "error": f"{exc!s:.300}", "segments": [],
+                                  "raw": [], "notes": {}, "missing_marker": [], "seconds": 0}
+                    print(f"[ab] {model} run {run} beat {index}: an arm failed, left out", flush=True)
 
             items.append({
                 "item": f"{model}|{run}|{index}",
@@ -221,6 +234,10 @@ def main() -> None:
     parser.add_argument("--modes", default=",".join(COMPANION_MODES))
     parser.add_argument("--no-load", action="store_true", help="use the model already loaded")
     parser.add_argument("--scenario", type=Path, default=_SCENARIO)
+    parser.add_argument(
+        "--resume", type=Path,
+        help="an earlier ab_<timestamp> folder; models it already finished are skipped",
+    )
     args = parser.parse_args()
 
     load_dotenv()
@@ -232,9 +249,17 @@ def main() -> None:
         sys.exit(f"--modes needs two or more of {COMPANION_MODES}")
     beats = (yaml.safe_load(args.scenario.read_text(encoding="utf-8")) or {}).get("beats") or []
 
-    out = data_root() / "logs" / f"ab_{datetime.now():%Y%m%d_%H%M%S}"
+    out = args.resume or data_root() / "logs" / f"ab_{datetime.now():%Y%m%d_%H%M%S}"
     (out / "private").mkdir(parents=True, exist_ok=True)
     session_log.set_log_dir(out / "private")
+
+    # Results are saved per finished model, so a resumed run keeps those and
+    # redoes only the models that didn't finish.
+    results_path = out / "private" / "results.jsonl"
+    items: list[dict] = []
+    if args.resume and results_path.is_file():
+        items = [json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines() if line]
+    done_models = {i["model"] for i in items}
 
     from eval_models import swap_model
     from ttrpg_crew.config_loader import config_section
@@ -245,16 +270,19 @@ def main() -> None:
         base_url = os.getenv("LOCAL_LLM_BASE_URL", "http://localhost:1234/v1")
         models = [os.getenv("LOCAL_LLM_MODEL") or detect_loaded_model(base_url) or "local-model"]
 
-    items: list[dict] = []
-    with (out / "private" / "results.jsonl").open("w", encoding="utf-8") as fh:
+    with results_path.open("a" if args.resume else "w", encoding="utf-8") as fh:
         for model in models:
+            if model in done_models:
+                print(f"[ab] {model} already done, skipped", flush=True)
+                continue
             if not args.no_load and args.models:
                 swap_model(config_section("evaluation"), model)
             os.environ["LOCAL_LLM_MODEL"] = model
-            for item in run_model(model, modes, args.runs, beats):
+            model_items = run_model(model, modes, args.runs, beats)
+            for item in model_items:
                 fh.write(json.dumps(item, ensure_ascii=False) + "\n")
-                fh.flush()
-                items.append(item)
+            fh.flush()
+            items.extend(model_items)
 
     n_pairs = write_blind(items, out)
     print(f"[ab] {len(items)} beats, {n_pairs} pairs to rate -> {out}")
