@@ -67,13 +67,13 @@ _DEFAULTS: dict[str, str] = {
     "party_present": "With you: {names}.",
     "said_so_far": "So far this beat:",
     "respond_now": (
-        "Respond now as {name}, in character, your actions and words only (or "
-        "[observes]). No analysis, reasoning, or planning."
+        "Respond now as {name}, in character, your actions and words only. No "
+        "analysis, reasoning, or planning."
     ),
     "think_first": (
         "First write one line starting with NOTE: followed by a private thought "
         "on how {name} would respond. The note is never shown. Then write SAY: "
-        "followed by {name}'s actions and words only (or [observes])."
+        "followed by {name}'s actions and words only."
     ),
 }
 

@@ -20,6 +20,9 @@
 #   personality  - strength / flaw / desire / fear (drives banter and stance
 #                  development; old version keyed disagreements off these)
 #   hook         - the character's personal stake in the campaign world
+#   silent_beats - short wordless actions, written without brackets, used when
+#                  a companion stays quiet and the model's own action was
+#                  missing or repeats a recent one
 
 characters:
   armelle:
@@ -65,6 +68,13 @@ characters:
       - '"I don''t judge you. I only think your grandmother would weep, and I''m sorry for it."'
       - '"Some of this fear isn''t mine. I took it off a boy on Tallow Stair. I''ll give it back to the dead when I can."'
       - '"Put the coin away. I won''t be paid for mercy, and I won''t be thanked for it either."'
+    silent_beats:
+      - folds her hands and waits, the way she waits at bedsides
+      - goes very still
+      - says nothing, and lets the silence do the judging
+      - bows her head, lips moving without sound
+      - watches the speaker until they look away first
+      - moves to stand nearer whoever is most frightened
     selection:
       talkativeness: 0.5
       expertise: [moral_dilemma, social, supernatural]
@@ -119,6 +129,13 @@ characters:
       - '"Lend me a handful till the quarter? I''m good for it. I''m always good for it."'
       - '"I used to read the water like a page. Now I can''t look at it. Funny, that."'
       - '"Don''t you pity me. Pay me, feed me, or leave me be."'
+    silent_beats:
+      - shifts so nothing open is at his back
+      - shoulders the nearest pack without being asked
+      - looks at his own hand a moment, then flexes it
+      - runs a thumb along an empty coat pocket
+      - plants himself by the door and stays there
+      - lets out a long breath through his nose
     selection:
       talkativeness: 0.45
       expertise: [combat, negotiation]
@@ -175,6 +192,13 @@ characters:
       - '"Cover at the desk like this: answer before the clerk finishes the question. They mark hesitation, not error."'
       - '"Don''t look at me like that. I said Faded, not gone. It''s a good reading."'
       - '"I''m fine. Ask me again and I''ll give you the official answer."'
+    silent_beats:
+      - looks from one face to the next, unhurried
+      - tilts their head, as if a figure didn't add up
+      - straightens a cuff that was already straight
+      - glances at their own hands, then away
+      - waits, perfectly polite, for someone else to speak first
+      - presses their lips together and says nothing
     selection:
       talkativeness: 0.6
       expertise: [investigation, memory, social]

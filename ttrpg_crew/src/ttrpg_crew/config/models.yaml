@@ -85,6 +85,8 @@ audit:
   cluster_min: 2             # flag this many distinct tier-2 cliche words
   density_min: 3             # flag this many tier-3 vague-intensifier words
   duplicate_similarity: 0.8  # 0-1; companion lines this similar count as echoes
+  silent_action_words: 20    # a bracketed action-only reply up to this long counts as silence
+  silent_repeat_similarity: 0.6  # 0-1; a silence this close to a recent one is swapped for silent_beats
 
 # Per-beat injection counts (services/knowledge.py). Read live.
 sampling:

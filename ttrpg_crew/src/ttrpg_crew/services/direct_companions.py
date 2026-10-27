@@ -81,7 +81,7 @@ def split_thought(text: str) -> tuple[str, str, bool]:
 
 
 def companion_call(
-    llm: Any, system: str, user: str, *, debug: bool = False
+    llm: Any, system: str, user: str, *, label: str = "companion", debug: bool = False
 ) -> llm_client.ChatResult:
     """One companion turn as a plain chat completion, no CrewAI/ReAct wrapper.
 
@@ -95,7 +95,7 @@ def companion_call(
     try:
         # Stops a runaway early; a 2-5 sentence line plus a think-first note
         # fits well inside this.
-        return llm_client.chat(llm, messages, max_tokens=600)
+        return llm_client.chat(llm, messages, max_tokens=600, label=label)
     except Exception as exc:
         if debug:
             print(f"[direct] chat completion failed ({exc}); using llm.call")

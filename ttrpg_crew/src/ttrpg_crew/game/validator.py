@@ -30,6 +30,8 @@ _DEFAULT_AUDIT = {
     "cluster_min": 2,
     "density_min": 3,
     "duplicate_similarity": 0.8,
+    "silent_action_words": 20,
+    "silent_repeat_similarity": 0.6,
 }
 
 
@@ -619,7 +621,7 @@ def duplicate_companion_line(text: str, prior_lines: list[str]) -> Violation | N
                 suggestion=(
                     "say something different, in this character's OWN voice and "
                     "manner — react to the same moment from their angle, or stay "
-                    "silent with [observes]"
+                    "silent with one short bracketed action"
                 ),
             )
     return None
@@ -640,6 +642,51 @@ def format_leak(text: str) -> Violation | None:
     if m:
         return Violation("format_leak", f"prompt scaffolding in output: {_snippet(m)}")
     return None
+
+
+_OBSERVES_RE = re.compile(r"\[\s*(?:i\s+)?observ(?:es?|ation)\s*\]", re.I)
+
+
+def observes_tag(text: str, *, may_observe: bool) -> Violation | None:
+    """An [observes] tag that isn't a legitimate silent reply: mixed into a
+    spoken line, or from a companion who had to speak."""
+    m = _OBSERVES_RE.search(text)
+    if not m:
+        return None
+    if not _OBSERVES_RE.sub("", text).strip():
+        if may_observe:
+            return None
+        return Violation("observes_tag", "went silent with [observes] when it had to speak")
+    return Violation("observes_tag", f"[observes] mixed into a reply: {_snippet(m)}")
+
+
+def strip_observes(text: str) -> str:
+    """Remove [observes] tags, leaving whatever else the reply said."""
+    return re.sub(r"[ \t]{2,}", " ", _OBSERVES_RE.sub("", text)).strip()
+
+
+_SILENT_RE = re.compile(r"^\[([^\[\]\"“”]+)\]$")
+
+
+def silent_action(text: str) -> str | None:
+    """The action, when the whole reply is one short bracketed action with no
+    words spoken: a companion choosing to stay quiet."""
+    m = _SILENT_RE.match(text.strip())
+    if not m or _OBSERVES_RE.fullmatch(text.strip()):
+        return None
+    action = m.group(1).strip()
+    if not action or len(action.split()) > _audit_cfg()["silent_action_words"]:
+        return None
+    return action
+
+
+def repeats_silent_action(action: str, recent: list[str]) -> bool:
+    """Whether `action` is close to one of this companion's recent silences."""
+    from difflib import SequenceMatcher
+
+    threshold = _audit_cfg()["silent_repeat_similarity"]
+    mine = action.lower()
+    return any(SequenceMatcher(None, mine, r.lower()).ratio() >= threshold for r in recent)
 
 
 def assistant_speak(text: str) -> Violation | None:

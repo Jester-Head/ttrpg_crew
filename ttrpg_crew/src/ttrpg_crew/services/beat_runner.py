@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import random
 import re
 import time
 from typing import Any, Callable
 
 from crewai import Agent, Crew, Process, Task
+from crewai.events import crewai_event_bus
+from crewai.events.types.llm_events import LLMCallStartedEvent
 from crewai.tasks.task_output import TaskOutput
 
 from ttrpg_crew import session_log
@@ -17,7 +20,10 @@ from ttrpg_crew.game.validator import (
     extract_closing_prompt,
     normalize_rewrite,
     repeats_player_action,
+    repeats_silent_action,
+    silent_action,
     strip_companion_prompt,
+    strip_observes,
     strip_speaker_label,
     trim_runaway,
 )
@@ -31,6 +37,20 @@ from ttrpg_crew.services import direct_companions
 from ttrpg_crew.services.agent_factory import build_agent
 
 COMPANION_MODES = ("crewai", "direct", "direct_think")
+# How many of a companion's recent silences a new one is checked against.
+_SILENCE_MEMORY = 4
+
+
+# Handlers run on a worker thread, but Crew.kickoff flushes them before it
+# returns, so the prompt log's tags still match the call.
+@crewai_event_bus.on(LLMCallStartedEvent)
+def _log_crewai_prompt(source: Any, event: LLMCallStartedEvent) -> None:
+    session_log.prompt(
+        getattr(event, "agent_role", None) or "crewai",
+        event.messages,
+        source="crewai",
+        model=event.model or "",
+    )
 
 
 def _quoted(player_input: str) -> str:
@@ -52,6 +72,7 @@ class PromptBackedBeatRunner:
         auto_retry: bool = True,
         debug: bool = False,
         companion_mode: str = "crewai",
+        recent_silences: dict[str, list[str]] | None = None,
     ):
         self.gm_agent = gm_agent
         self.companion_agents = companion_agents
@@ -71,6 +92,9 @@ class PromptBackedBeatRunner:
         if companion_mode not in COMPANION_MODES:
             raise ValueError(f"companion_mode must be one of {COMPANION_MODES}")
         self.companion_mode = companion_mode
+        # Each companion's recent silent actions; owned by the flow so it
+        # lasts across beats.
+        self.recent_silences = recent_silences if recent_silences is not None else {}
         # Raw per-speaker outputs and think-first notes from the last beat,
         # before audit/edit (read by the A/B harness).
         self.last_outputs: list[tuple[str, str]] = []
@@ -102,10 +126,12 @@ class PromptBackedBeatRunner:
         on_segment: Callable[[BeatSegment], None] | None = None,
         gm_text: str | None = None,
         gm_only: bool = False,
+        speakers_forced: bool = False,
     ) -> Beat:
         """Run one beat. `gm_text` replays a pre-generated GM frame instead of
         calling the GM, so A/B arms can share identical narration. `gm_only`
-        runs just the GM (still told who will speak)."""
+        runs just the GM (still told who will speak). `speakers_forced` means
+        the caller fixed the speakers, so none of them may answer [observes]."""
         stance_hints = stance_hints or {}
         speakers_to_run = [] if gm_only else selected_speakers
         self.last_notes = {}
@@ -214,6 +240,7 @@ class PromptBackedBeatRunner:
                 merged_vars = {
                     **common_vars,
                     **self.companion_prompt_vars[speaker_id],
+                    "may_observe": self._may_observe(speaker_id, beat_intent, speakers_forced),
                     "party_members": self._party_for(speaker_id, protagonist_name),
                     "beat_directives": self._beat_directives(
                         speaker_id, beat_intent, selected_speakers, companion_said,
@@ -236,7 +263,7 @@ class PromptBackedBeatRunner:
                     ),
                 )
                 result = direct_companions.companion_call(
-                    self.llm, system, user, debug=self.debug
+                    self.llm, system, user, label=speaker_id, debug=self.debug
                 )
                 text = result.text
                 if think_first:
@@ -262,6 +289,7 @@ class PromptBackedBeatRunner:
                 companion_vars = {
                     **common_vars,
                     **self.companion_prompt_vars[speaker_id],
+                    "may_observe": self._may_observe(speaker_id, beat_intent, speakers_forced),
                     "party_members": self._party_for(speaker_id, protagonist_name),
                     # Tasks are built before any output exists, so this carries
                     # intent + who else speaks + anti-echo (no said-lines yet;
@@ -334,10 +362,15 @@ class PromptBackedBeatRunner:
         prior_companion_lines: list[str] = []
         for label, text in outputs:
             self._diag(f"[output] {label}: {text}")
+            silent = False
             if label != "GM":
                 # A trailing "What do you do?" is never the companion's to say
                 # (transcript-format echo); strip it before auditing.
                 text = strip_companion_prompt(text)
+                text, silent = self._settle_silence(label, text)
+                if not text:
+                    self._diag(f"[silence] {label}: no line this beat")
+                    continue
             check = dict(
                 protagonist_name=protagonist_name,
                 companion_names=companion_names,
@@ -366,7 +399,7 @@ class PromptBackedBeatRunner:
             # Contract note: typing indicators will eventually need a
             # "speaker started" signal too; expect this single-event hook to
             # grow a sibling rather than treating its shape as settled.
-            segment = self._build_segment(label, text, beat, presence=presence)
+            segment = self._build_segment(label, text, beat, presence=presence, silent=silent)
             if segment and on_segment is not None:
                 try:
                     on_segment(segment)
@@ -424,7 +457,7 @@ class PromptBackedBeatRunner:
         return directive("party_present", names=joined)
 
     def _build_segment(
-        self, label: str, text: str, beat: Beat, *, presence: str = ""
+        self, label: str, text: str, beat: Beat, *, presence: str = "", silent: bool = False
     ) -> BeatSegment | None:
         """Finalize one output into a BeatSegment appended to the beat.
 
@@ -452,9 +485,36 @@ class PromptBackedBeatRunner:
             name = str(
                 self.companion_prompt_vars.get(label, {}).get("character_name", label)
             )
-            segment = BeatSegment(label, name, text)
+            segment = BeatSegment(label, name, text, silent=silent)
         beat.segments.append(segment)
         return segment
+
+    def _settle_silence(self, speaker_id: str, text: str) -> tuple[str, bool]:
+        """Return (text, silent) for a companion's reply.
+
+        A reply that is one short bracketed action counts as staying quiet and
+        is kept unless it repeats this companion's recent silences. A bare
+        [observes] or a repeat is swapped for an unused line from the
+        character's silent_beats; with none left the companion has no line
+        ("" returned). Stray [observes] tags in a spoken reply are dropped."""
+        text = strip_observes(text)
+        action = silent_action(text) if text else None
+        if text and action is None:
+            return text, False
+
+        recent = self.recent_silences.setdefault(speaker_id, [])
+        if action is None or repeats_silent_action(action, recent):
+            beats = self.companion_prompt_vars.get(speaker_id, {}).get("silent_beats") or []
+            fresh = [
+                b for b in (str(b).strip().strip("[]").strip() for b in beats)
+                if b and not repeats_silent_action(b, recent)
+            ]
+            if not fresh:
+                return "", True
+            action = random.choice(fresh)
+        recent.append(action)
+        del recent[:-_SILENCE_MEMORY]
+        return f"[{action}]", True
 
     def _diag(self, line: str) -> None:
         """Diagnostic sink: print to console only in debug, but always log to file."""
@@ -493,6 +553,17 @@ class PromptBackedBeatRunner:
             if sid != speaker_id
         ]
         return ", ".join([protagonist_name] + others)
+
+    @staticmethod
+    def _may_observe(
+        speaker_id: str, intent: BeatIntent | None, speakers_forced: bool
+    ) -> bool:
+        """Whether this companion is offered [observes] instead of a reply.
+
+        Offering it to someone who must answer makes models speak and then
+        tack the tag on, or go silent on a direct question."""
+        addressed = intent is not None and intent.addressed_id == speaker_id
+        return not (speakers_forced or addressed)
 
     def _answer_first(
         self,

@@ -10,6 +10,7 @@ Writes logs/ab_<timestamp>/:
     blind/pairs.jsonl    what you rate (no arm names)
     private/key.json     which arm is on which side; don't open until rated
     private/results.jsonl  raw outputs, notes, checks and timings per arm
+    private/session_*.prompts.jsonl  the exact messages of every model call
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ from ttrpg_crew.game.validator import (
     audit,
     duplicate_companion_line,
     format_leak,
+    observes_tag,
     repeats_player_action,
 )
 from ttrpg_crew.services.beat_runner import COMPANION_MODES
@@ -77,7 +79,9 @@ def _forced_selection(spec, roster: list[str], rng: random.Random) -> ModeratorS
     )
 
 
-def _checks(flow, speaker_id: str, text: str, prior: list[str], player_input: str) -> list[str]:
+def _checks(
+    flow, speaker_id: str, text: str, raw: str, prior: list[str], player_input: str
+) -> list[str]:
     names = {
         sid: str(p.get("name") or sid) for sid, p in flow.character_profiles.items()
     }
@@ -93,6 +97,8 @@ def _checks(flow, speaker_id: str, text: str, prior: list[str], player_input: st
     violations += acts_as_other(text, others)
     for check in (
         format_leak(text),
+        # Raw, because the engine strips the tag. Every speaker here is forced.
+        observes_tag(raw, may_observe=False),
         assistant_speak(text),
         duplicate_companion_line(text, prior),
         repeats_player_action(text, player_input),
@@ -108,15 +114,25 @@ def run_arm(flow, mode: str, player_input: str, selection, gm_text, seed: int) -
     beat = flow.kickoff(player_input=player_input, selection=selection, gm_text=gm_text)
     seconds = time.perf_counter() - start
     runner = flow.last_runner
+    raw = {label: text for label, text in runner.last_outputs if label != "GM"}
     segments, prior = [], []
     for seg in beat.segments:
         if seg.is_gm:
             continue
-        rules = _checks(flow, seg.speaker_id, seg.text, prior, player_input)
+        rules = _checks(flow, seg.speaker_id, seg.text, raw.get(seg.speaker_id, ""), prior, player_input)
+        if seg.silent:
+            rules.append("went_silent")
         prior.append(seg.text)
         segments.append(
             {"speaker": seg.speaker_name, "id": seg.speaker_id, "text": seg.text, "checks": rules}
         )
+    spoke = {s["id"] for s in segments}
+    for speaker_id in raw:
+        if speaker_id not in spoke:
+            name = str(flow.character_profiles.get(speaker_id, {}).get("name") or speaker_id)
+            segments.append(
+                {"speaker": name, "id": speaker_id, "text": "(no line)", "checks": ["went_silent"]}
+            )
     return {
         "mode": mode,
         "seconds": round(seconds, 1),
@@ -142,6 +158,7 @@ def run_model(model: str, modes: list[str], runs: int, beats: list[dict]) -> lis
             forced = _forced_selection(spec.get("speakers"), roster, random.Random(seed))
 
             random.seed(seed)
+            session_log.set_tags(model=model, run=run, beat=index, arm="gm")
             try:
                 gm_beat = gm_flow.kickoff(player_input=player_input, selection=forced, gm_only=True)
             except Exception as exc:
@@ -164,6 +181,7 @@ def run_model(model: str, modes: list[str], runs: int, beats: list[dict]) -> lis
 
             arms = {}
             for mode in random.Random(seed).sample(modes, len(modes)):
+                session_log.set_tags(model=model, run=run, beat=index, arm=mode)
                 try:
                     arms[mode] = run_arm(arm_flows[mode], mode, player_input, selection, gm_raw, seed)
                     print(f"[ab] {model} run {run} beat {index} arm done", flush=True)
@@ -252,6 +270,7 @@ def main() -> None:
     out = args.resume or data_root() / "logs" / f"ab_{datetime.now():%Y%m%d_%H%M%S}"
     (out / "private").mkdir(parents=True, exist_ok=True)
     session_log.set_log_dir(out / "private")
+    session_log.log_prompts()
 
     # Results are saved per finished model, so a resumed run keeps those and
     # redoes only the models that didn't finish.

@@ -85,6 +85,8 @@ class TTRPGFlow:
         # The runner and speaker selection from the most recent beat.
         self.last_runner: PromptBackedBeatRunner | None = None
         self.last_selection: ModeratorSelection | None = None
+        # Each companion's recent silent actions, so silences don't repeat.
+        self.recent_silences: dict[str, list[str]] = {}
         # debug=True shows engine internals (agent panels, [timing]/[audit]
         # lines); play mode keeps it False so only the story is printed.
         self.debug = debug
@@ -326,6 +328,7 @@ class TTRPGFlow:
 
         # 4. Run the moderator to select speakers.
         moderator_start = time.perf_counter()
+        speakers_forced = selection is not None
         if selection is None:
             selection = self._select_speakers(common_vars)
         self.last_selection = selection
@@ -372,6 +375,7 @@ class TTRPGFlow:
             auto_retry=self.auto_retry,
             debug=self.debug,
             companion_mode=self.companion_mode,
+            recent_silences=self.recent_silences,
         )
         self.last_runner = runner
 
@@ -417,6 +421,7 @@ class TTRPGFlow:
             on_segment=on_segment,
             gm_text=gm_text,
             gm_only=gm_only,
+            speakers_forced=speakers_forced,
         )
         beat_secs = time.perf_counter() - beat_call_start
 

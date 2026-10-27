@@ -46,7 +46,7 @@ party_present: "With you: {names}."
 # Direct-path framing (companions as plain chat completions).
 # Placeholder: {name} = this companion.
 said_so_far: "So far this beat:"
-respond_now: "Respond now as {name}, in character, your actions and words only (or [observes]). No analysis, reasoning, or planning."
+respond_now: "Respond now as {name}, in character, your actions and words only. No analysis, reasoning, or planning."
 # Think-first variant of respond_now (the A/B harness's direct_think arm).
 # Keep the NOTE:/SAY: markers; the engine splits on them.
-think_first: "First write one line starting with NOTE: followed by a private thought on how {name} would respond. The note is never shown. Then write SAY: followed by {name}'s actions and words only (or [observes])."
+think_first: "First write one line starting with NOTE: followed by a private thought on how {name} would respond. The note is never shown. Then write SAY: followed by {name}'s actions and words only."
