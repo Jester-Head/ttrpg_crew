@@ -135,7 +135,7 @@ _GENDER_LABELS = {
 
 
 def load_name_banks() -> dict[str, dict[str, list[str]]]:
-    """Curated NPC names keyed by ancestry, then by gender group.
+    """Curated NPC names keyed by species, then by gender group.
 
     e.g. {'human': {'male': [...], 'female': [...], 'neutral': [...]},
           'clank': {'unsorted': [...]}}. Gender groups let the GM name an NPC to
@@ -166,37 +166,37 @@ def _sampling_count(key: str, default: int) -> int:
         return default
 
 
-def sample_name_pool(per_ancestry: int | None = None) -> str:
-    """A fresh per-beat sample of curated NPC names, grouped by ancestry+gender.
+def sample_name_pool(per_species: int | None = None) -> str:
+    """A fresh per-beat sample of curated NPC names, grouped by species+gender.
 
     Injected into the GM prompt so new NPCs are named from the campaign's own
     banks instead of generic AI defaults (Elara, Kael, …), and so the name suits
     the NPC's pronouns. Re-sampled each beat for variety; names already in the
     transcript persist on their own.
 
-    `per_ancestry` names are sampled from EACH gender group present, so a fully
-    gendered ancestry (e.g. human) shows he/him + she/her + they/them options
-    while an unclassified one stays a single flat list. Format per ancestry:
+    `per_species` names are sampled from EACH gender group present, so a fully
+    gendered species (e.g. human) shows he/him + she/her + they/them options
+    while an unclassified one stays a single flat list. Format per species:
         Human [he/him: A, B; she/her: C, D; they/them: E, F]
-        Clank [Zizi, Zenn]
+        Gnome [Nuet Cricketnut, Sethen Airbreath]
     """
-    if per_ancestry is None:
-        per_ancestry = _sampling_count("names_per_ancestry", 2)
+    if per_species is None:
+        per_species = _sampling_count("names_per_species", 2)
     banks = load_name_banks()
     entries = []
-    for ancestry, groups in banks.items():
+    for species, groups in banks.items():
         # Bare list when the only group is the unclassified bucket; otherwise
         # tag each group with its pronoun hint so the GM can match the NPC.
         only_unsorted = set(groups) == {"unsorted"}
         parts = []
         for group, names in groups.items():
-            picks = random.sample(names, min(per_ancestry, len(names)))
+            picks = random.sample(names, min(per_species, len(names)))
             label = _GENDER_LABELS[group]
             if only_unsorted or not label:
                 parts.append(", ".join(picks))
             else:
                 parts.append(f"{label}: {', '.join(picks)}")
-        entries.append(f"{ancestry.capitalize()} [{'; '.join(parts)}]")
+        entries.append(f"{species.capitalize()} [{'; '.join(parts)}]")
     return " ".join(entries)
 
 

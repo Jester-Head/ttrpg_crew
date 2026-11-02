@@ -83,9 +83,9 @@ _defaults:
 
     Naming:
     - When you introduce a NEW named NPC, take a name from this list that fits
-      their ancestry. Never invent a generic fantasy name (no "Elara", "Kael",
+      their species. Never invent a generic fantasy name (no "Elara", "Kael",
       "Lyra"). Names already established in the story stay as they are.
-    - Names are grouped by ancestry, then by the pronouns each name suits
+    - Names are grouped by species, then by the pronouns each name suits
       (he/him, she/her, they/them); pick one matching the NPC's gender. Names
       shown without a pronoun tag suit any NPC.
     - Available names — {{ name_pool }}
@@ -245,7 +245,7 @@ model_tiers:
         {% if companions_speaking %}These companions speak and act for themselves
         right after you: {{ companions_speaking }}. Frame only the world/NPCs; do
         not voice them or describe their reactions, gazes, or body language.{% endif %}
-        Naming: name NEW NPCs from this list (fit the ancestry, and match the
+        Naming: name NEW NPCs from this list (fit the species, and match the
         pronoun tag he/him/she/her/they/them to the NPC); never invent generic
         names. Names — {{ name_pool }}
         Register: gothic / grimdark, but PLAIN and concrete — no stacked

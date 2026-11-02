@@ -440,7 +440,7 @@ def audit_style(text: str) -> list[Violation]:
                     f"AI-default name '{match.group(1)}'",
                     suggestion=(
                         "rename this NPC using a name from the campaign name bank "
-                        "listed in your prompt (matched to their ancestry)"
+                        "listed in your prompt (matched to their species)"
                     ),
                 )
             )
