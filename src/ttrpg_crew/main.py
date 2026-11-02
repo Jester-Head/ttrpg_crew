@@ -122,8 +122,17 @@ def _build_flow() -> TTRPGFlow:
         return params
 
     def _make_llm(model_id: str, params: dict, *, url: str | None = None, key: str | None = None) -> LLM:
-        model = model_id if model_id.startswith("openai/") else f"openai/{model_id}"
-        return LLM(model=model, base_url=url or base_url, api_key=key or api_key, **params)
+        url = url or base_url
+        if model_id.startswith(("ollama/", "ollama_chat/")):
+            # LiteLLM's native Ollama provider wants the server root; the /v1
+            # base_url stays as is because embeddings use the OpenAI-style API.
+            model = model_id
+            url = url.rstrip("/").removesuffix("/v1")
+        elif model_id.startswith("openai/"):
+            model = model_id
+        else:
+            model = f"openai/{model_id}"
+        return LLM(model=model, base_url=url, api_key=key or api_key, **params)
 
     model_id = os.getenv("LOCAL_LLM_MODEL") or detect_loaded_model(base_url) or "local-model"
     tier = os.getenv("TTRPG_CREW_MODEL_TIER") or resolve_tier_for_model(model_id)
