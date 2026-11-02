@@ -221,3 +221,5 @@ __marimo__/
 .knowledge_store/
 .embak/
 logs/
+
+.claude/
