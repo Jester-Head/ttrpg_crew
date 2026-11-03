@@ -22,6 +22,9 @@ class SceneUpdate(BaseModel):
     new_facts: list[str] = Field(default_factory=list)
     resolved_facts: list[str] = Field(default_factory=list)
     npcs: list[str] = Field(default_factory=list)
+    # How many checkpoints ahead this beat got to: 0 none, 1 the current one,
+    # 2 the one after (the player went straight there), and so on.
+    checkpoint_reached: int = 0
 
     @field_validator("suggested_actions", "new_facts", "resolved_facts", "npcs", mode="before")
     @classmethod
@@ -35,6 +38,16 @@ class SceneUpdate(BaseModel):
         if isinstance(value, list):
             return [_item_text(item) for item in value if item is not None]
         return value
+
+    @field_validator("checkpoint_reached", mode="before")
+    @classmethod
+    def _as_checkpoint_number(cls, value):
+        if isinstance(value, bool):
+            return 1 if value else 0
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return 0
 
     @field_validator("location", "objective", "summary", mode="before")
     @classmethod

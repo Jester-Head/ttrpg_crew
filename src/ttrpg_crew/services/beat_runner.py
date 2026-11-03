@@ -130,6 +130,7 @@ class PromptBackedBeatRunner:
         gm_task_key: str = "narrative",
         roll_result: str = "",
         allow_roll: bool = True,
+        story_vars: dict[str, str] | None = None,
         on_segment: Callable[[BeatSegment], None] | None = None,
         gm_text: str | None = None,
         gm_only: bool = False,
@@ -219,6 +220,13 @@ class PromptBackedBeatRunner:
             "companions_speaking": companions_speaking,
             "gm_intent": gm_intent,
             "roll_result": roll_result,
+            # The adventure's hook, checkpoint, pressure and ending lines; the
+            # templates use StrictUndefined, so every key is always present.
+            "opening_situation": "",
+            "checkpoint": "",
+            "pressure": "",
+            "adventure_ending": "",
+            **(story_vars or {}),
         }
 
         companion_names = tuple(
@@ -291,6 +299,8 @@ class PromptBackedBeatRunner:
             roll = parse_roll_request(gm_raw)
             gm_raw = strip_roll_tag(gm_raw)
             beat.pending_roll = roll if allow_roll else None
+            if roll is not None and beat.pending_roll is None:
+                self._diag(f"[roll] {roll.skill} DC {roll.dc} dropped — no roll this beat")
             if beat.pending_roll is not None:
                 self._diag(
                     f"[roll] requested {beat.pending_roll.skill} "

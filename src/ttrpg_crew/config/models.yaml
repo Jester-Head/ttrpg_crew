@@ -81,6 +81,11 @@ scene_tracker:
   max_facts: 12              # durable facts kept; oldest drop off first
   max_npcs: 10               # named NPCs kept
 
+# Adventure checkpoints (game/adventure.py, frame.yaml): after this many beats
+# without reaching the current checkpoint, the GM is told to press. Read live.
+checkpoints:
+  press_after: 4
+
 # Deterministic speaker selection (game/speaker_policy.py): how often and how
 # many companions chime in. Read live, so edits apply on the next beat.
 speaker_selection:

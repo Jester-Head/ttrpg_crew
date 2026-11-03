@@ -284,12 +284,15 @@ def format_cast(cast: list[dict[str, Any]]) -> str:
         role = _flat(m.get("role", "")).strip()
         goal = _flat(m.get("goal", "")).strip()
         voice = _flat(m.get("voice", "")).strip()
+        knows = _flat(m.get("knows", "")).strip()
         head = f"{name} ({faction})" if faction else name
         if role:
             head += f" [{role}]"
         tail = []
         if goal:
             tail.append(f"wants {goal}")
+        if knows:
+            tail.append(f"knows {knows}")
         if voice:
             tail.append(f"voice: {voice}")
         line = f"- {head}"

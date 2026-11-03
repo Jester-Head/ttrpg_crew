@@ -29,5 +29,9 @@ class GameState:
     # Next moves offered to the player; shown outside the prose, never in it.
     suggested_actions: list[str] = field(default_factory=list)
     active_npcs: list[str] = field(default_factory=list)
+    # Adventure progress: the checkpoint the GM is steering toward, and how
+    # many beats have passed without reaching it.
+    checkpoint_index: int = 0
+    beats_since_progress: int = 0
     characters: dict[str, CharacterState] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)

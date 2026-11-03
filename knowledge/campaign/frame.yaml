@@ -1,16 +1,13 @@
-# Campaign Frame — the GM's structural guide.  *** PLACEHOLDER — edit freely. ***
+# Campaign frame — the premise, and the adventure the GM runs inside it.
 #
-# This is the source of the OPENING and the soft rails that keep the story
-# moving — beats to steer toward, clocks that advance on their own, and planned
-# encounters — even when the player wanders. The principle is pressure, not
-# script: clocks tick and consequences find the player; nobody takes the wheel
-# from them.
-#
-# Wiring status: the GM currently reads `opening.location` from here. The rest
-# (beats/clocks/encounters/pacing) is the scaffold for the future "director"
-# layer in the moderator — written now so the shape is fixed, not yet enforced.
+# Read by game/adventure.py. The opening dramatizes `hook`. Each beat the GM is
+# told which checkpoint the story is heading toward, and after models.yaml
+# `checkpoints.press_after` beats without reaching it, that checkpoint's
+# `pressure`. The scene tracker decides when `reached_when` has happened. Cast
+# members (cast.yaml) reach the GM only once the hook names them, a checkpoint's
+# `npcs` introduces them, or they've been met in play.
 
-title: The Last of What You Were
+title: What the Reading Says
 
 # The campaign overview the GM frames every scene around: the world, the
 # player's place in it, and the stakes. The premise lives inside the campaign
@@ -33,61 +30,54 @@ premise: |
   does not reverse on its own. The only hope on record is Fellow Clara Moree,
   the single soul ever to come back from Rendering.
 
-# Where and how the story opens. The GM frames the first scene from this.
-opening:
-  location: The Residuum, a tavern in the Unmoored Commons
-  situation: >
-    A stranger with a fraying coat and frightened eyes presses a sealed,
-    cold-to-the-touch vial into your hands and begs you to courier it to the
-    Myelin Conclave before the lantern towers turn, no questions, for double
-    the usual fee. They do not say what is in it, only that the Sideric Clade
-    must never get it back.
+starting_location: The Residuum, a tavern in the Unmoored Commons
 
-# The dramatic question the campaign turns on.
-premise_hook: >
-  What is a memory worth — and whose — when your own are running out?
+hook: >
+  Solange Harper finds the courier at the Residuum with a Census notice in her
+  hand. Her friend Pascal Spence has been called for a renewal assay in six
+  days. He still knows her and still laughs at his own jokes, but he loses the
+  thread of a sentence halfway through — he'd assay at Lapsed, and she's sure
+  this assayer will read him Hollowed. If they do, his standing is withdrawn,
+  and she can't afford to keep him, so the Census will assign him to Clade
+  guardianship. She can't pay much. She needs someone who goes everywhere and
+  belongs nowhere.
 
-# Beats to steer TOWARD (aims, not a fixed path). Reorder/skip as the player leads.
-beats:
-  - The delivery is offered; the player learns (or refuses to learn) what the vial holds.
-  - The Clade discovers the memory is gone and begins hunting the courier who took it.
-  - The Hollow Flame offers protection in exchange for the player's cross-faction access.
-  - The vial's memory proves to matter to more than its owner; the Clade fears it.
-  - The player seeks Fellow Clara Moree, the only person ever to come back from Rendering.
-  - A final choice: deliver, keep, destroy, or trade the memory and pay what it costs.
+checkpoints:
+  - goal: >
+      Meet Pascal and learn exactly what the notice requires — when, where, and
+      who reads him.
+    reached_when: the courier has seen Pascal and knows the assay's date and place
+    pressure: A Census runner comes to Pascal's door to confirm he'll attend.
+    npcs: [Pascal Spence]
 
-# Clocks: looming threats that advance on their own (faster when the player
-# stalls or derails). When a clock fills, its consequence fires.
-clocks:
-  - name: The Slide
-    segments: 6
-    advances_when: the player sells a memory, takes a graft, or suffers acute memory damage
-    when_full: they drop a rung, from Faded to Lapsed
-  - name: The Clade Closes In
-    segments: 4
-    advances_when: the player lingers, is recognized, or shows the vial in Clade ground
-    when_full: Clade enforcers and Vigil constructs corner the player
-  - name: The Hollow Flame's Patience
-    segments: 4
-    advances_when: the player refuses or strings along the Hollow Flame
-    when_full: the Fracturers stop asking and take the player's vault access by force
+  - goal: >
+      Choose a way through — hide him from the Census, buy feeling to carry him
+      through the reading, or find out who reads him and why.
+    reached_when: the courier commits to a way through and takes the first step
+    pressure: Pascal loses his way home, and a neighbor mentions him to the street's Census clerk.
+    npcs: [Brynn Goodman, Javier Larsen]
 
-# Planned encounters — introduced diegetically when a trigger fires, never forced.
-# (Stat the adversaries from rules/srd/monsters_a_z.md and animals.md; these
-# are descriptive until you add the blocks.)
-encounters:
-  - name: Clade Sweep
-    trigger: "'The Clade Closes In' fills, or the player flaunts the vial in the Glass Spine"
-    adversaries: a Clade Logician directing two Vigil security constructs
-  - name: Dredge-Canals Ambush
-    trigger: the player flees into the Dredge-Canals or trades on the Grey Market
-    adversaries: desperate black-market operators from The Still
+  - goal: >
+      The chosen way's price comes due — the Hollow Flame wants something back
+      for a berth in the Canals, a dose has to be found and paid for, or the
+      assayer's own reasons surface.
+    reached_when: the price of the chosen way is paid or refused
+    pressure: Solange starts making her own plan, and it's worse than the courier's.
 
-# Guidance for the GM/moderator on how hard to steer.
-pacing:
-  rails_strength: medium   # loose | medium | tight — how firmly to push toward the next beat
-  notes: >
-    When the player engages a beat, ease off and follow them. When they stall or
-    derail, advance a clock and let the consequence pull them back. Introduce
-    combat through triggers and fiction (a clock filling, a line crossed), never
-    as a non-sequitur. Keep the slide personal: every cost lands on the player.
+  - goal: >
+      Assay day at the Assayer's Row, or Pascal is missed and the Census comes
+      asking.
+    reached_when: the assay is held or formally missed
+    pressure: The Row sends for him.
+    npcs: [Carmen Fulton]
+
+  - goal: >
+      The hearing, if he's read at Hollowed — never a single die: an Assessor
+      scene, then a hearing on a countdown the party can prepare for and buy
+      against.
+    reached_when: the hearing is decided, or he kept his standing at the assay
+    pressure: The countdown runs down.
+
+ending: >
+  Pascal keeps his standing, loses it, or is out of the Census's reach in the
+  Canals — and Solange, Pascal and the courier live with what it cost.

@@ -49,6 +49,7 @@ SCENE_UPDATE_SCHEMA: dict[str, Any] = {
         "new_facts": _STRING_LIST,
         "resolved_facts": _STRING_LIST,
         "npcs": _STRING_LIST,
+        "checkpoint_reached": {"type": "integer"},
     },
     "required": [
         "location",
@@ -60,6 +61,7 @@ SCENE_UPDATE_SCHEMA: dict[str, Any] = {
         "new_facts",
         "resolved_facts",
         "npcs",
+        "checkpoint_reached",
     ],
     "additionalProperties": False,
 }
@@ -109,6 +111,7 @@ def scene_update_messages(
     party_names: list[str],
     suggestions: int,
     max_suggestion_chars: int = _DEFAULTS["max_suggestion_chars"],
+    checkpoints: list[str] | None = None,
 ) -> tuple[str, str]:
     """Build (system, user) for the tracker call.
 
@@ -118,6 +121,16 @@ def scene_update_messages(
     player = protagonist_name or "the player"
     action = player_input.strip() or "(opening scene; no action yet)"
     party = ", ".join(n for n in (protagonist_name, *party_names) if n) or "None"
+    # The current checkpoint and the ones after it, so a player who goes
+    # straight to a later one still moves the story on.
+    if checkpoints:
+        listed = "\n".join(f"  {n}. {when}" for n, when in enumerate(checkpoints, start=1))
+        checkpoint_question = (
+            "the number of the furthest of these this beat clearly did, or 0 if "
+            f"none:\n{listed}"
+        )
+    else:
+        checkpoint_question = "0."
     user = f"""
 Current state (keep it unless the beat explicitly changes it):
 Location: {state.location or "Unknown"}
@@ -155,6 +168,7 @@ Return:
   or finished.
 - npcs: named non-party characters this beat introduced or changed, each as
   "Name: who they are, in a few words".
+- checkpoint_reached: {checkpoint_question}
 """.strip()
     return SYSTEM_PROMPT, user
 

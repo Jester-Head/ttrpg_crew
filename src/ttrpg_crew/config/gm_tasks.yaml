@@ -10,7 +10,8 @@ _defaults:
     {{ campaign_premise }}
     {% if cast %}
     Recurring cast (keep each consistent — same name, voice, and goals whenever
-    they appear; do not rename or re-invent them):
+    they appear; do not rename or re-invent them). Introduce people when the
+    story reaches them, never as a list:
     {{ cast }}
     Portray each one's manner through what they do and how they speak. The
     "voice:" notes are direction for you, not words to copy — never paste the
@@ -81,14 +82,23 @@ _defaults:
     D&D (when mechanics apply):
     - Checks are d20 + modifier vs a DC. State stakes before any roll.
     - Never roll for the player. DC 10 Easy, 15 Medium, 20 Hard, 25 Very Hard.
-    - When an action needs a roll, say what's at stake and the DC, then end the
-      beat with [ROLL: Skill DC 15] and stop — the engine rolls and hands you the
-      result next beat. Never narrate the outcome before then.
-    - Failed rolls: complications, not blocks — fail forward.
+    - Call for a roll only when the outcome is uncertain and failing would change
+      something. Asking someone to show the way, a plain question, or anything an
+      ordinary person would simply do needs no roll — just play it out.
+    - When an action does need a roll, say what's at stake and the DC, then end
+      the beat with a tag naming the actual skill — e.g. [ROLL: Intimidation DC 15]
+      — and stop. The engine rolls and hands you the result next beat. Never
+      narrate the outcome before then.
+    - Failed rolls: complications, not blocks — fail forward. A failure costs
+      something or makes things harder; it never just ends the scene or shuts
+      the door.
     {% if roll_result %}
     Roll result (rolled by the engine — narrate this outcome, don't change it):
     {{ roll_result }}
     {% endif %}
+    {% if checkpoint %}Where the story is heading — steer toward it through the people and events in play; never force the player: {{ checkpoint }}{% endif %}
+    {% if pressure %}The story has stalled. Press: {{ pressure }}{% endif %}
+    {% if adventure_ending %}The adventure is ending — bring it to a close: {{ adventure_ending }}{% endif %}
 
     Naming:
     - When you introduce a NEW named NPC, take a name from this list that fits
@@ -159,6 +169,8 @@ opening_scene:
     {% endif %}
 
     Starting location hint: {{ scene_context }}
+
+    {% if opening_situation %}Open on this situation — it's the hook. Dramatize it, don't summarize it, and introduce only the people in it: {{ opening_situation }}{% endif %}
 
     The party is here with the player: {{ party_members }}. Place each of them
     in the scene once, by where they are (a few words each), so the player knows
@@ -370,8 +382,11 @@ model_tiers:
         one outside its label, and adapt full sentences to the scene rather
         than pasting them: {{ style_cues }}.{% endif %}
         Cadence: Varied. Mix punchy sentence paragraphs with longer flowing thoughts.
-        Needs a roll: state the stakes and DC, end with [ROLL: Skill DC N], and stop.
+        Roll only when the outcome is uncertain and failing would change something. Then state the stakes and DC, end with a tag naming the actual skill — e.g. [ROLL: Intimidation DC 15] — and stop. A failed roll costs something; it never shuts the door.
         {% if roll_result %}Roll result (rolled by the engine — narrate this outcome, don't change it): {{ roll_result }}{% endif %}
+        {% if checkpoint %}Where the story is heading — steer toward it through the people and events in play; never force the player: {{ checkpoint }}{% endif %}
+        {% if pressure %}The story has stalled. Press: {{ pressure }}{% endif %}
+        {% if adventure_ending %}The adventure is ending — bring it to a close: {{ adventure_ending }}{% endif %}
 
       expected_output: >
         2-5 sentences, then "What do you do?" Lead with people and stakes, not
@@ -396,6 +411,7 @@ model_tiers:
 
     opening_scene:
       description: >
+        {% if opening_situation %}Open on this situation — it's the hook. Dramatize it, don't summarize it, and introduce only the people in it: {{ opening_situation }}{% endif %}
         Opening scene. Location: {{ scene_context }}. Open on a person or a
         tension already in motion, not on scenery. One concrete hook with real
         stakes. Setting is background. The party is here with the player:
@@ -454,8 +470,11 @@ model_tiers:
         Name NEW NPCs from this list (match the pronoun tag to the NPC), never generic names: {{ name_pool }}
         Gothic, in a 19th-century novel's voice, but PLAIN: concrete words, no modern phrasing, no stacked adjectives or fancy metaphors.{% if style_cues %} You may use (each only as its label says; adapt sentences, don't copy them): {{ style_cues }}.{% endif %}
         Varied cadence. Mix punchy sentence paragraphs with longer flowing thoughts.
-        Needs a roll: state the stakes and DC, end with [ROLL: Skill DC N], and stop.
+        Roll only when the outcome is uncertain and failing would change something. Then state the stakes and DC, end with a tag naming the actual skill — e.g. [ROLL: Intimidation DC 15] — and stop. A failed roll costs something; it never shuts the door.
         {% if roll_result %}Roll result (rolled by the engine — narrate this outcome, don't change it): {{ roll_result }}{% endif %}
+        {% if checkpoint %}Where the story is heading — steer toward it through the people and events in play; never force the player: {{ checkpoint }}{% endif %}
+        {% if pressure %}The story has stalled. Press: {{ pressure }}{% endif %}
+        {% if adventure_ending %}The adventure is ending — bring it to a close: {{ adventure_ending }}{% endif %}
 
       expected_output: >
         2-5 sentences, then "What do you do?" People and stakes first, scenery
@@ -478,6 +497,7 @@ model_tiers:
 
     opening_scene:
       description: >
+        {% if opening_situation %}Open on this situation — it's the hook. Dramatize it, don't summarize it, and introduce only the people in it: {{ opening_situation }}{% endif %}
         Open scene at {{ scene_context }}. Start with a person or tension, not
         scenery. One hook with stakes. No player actions. Party present:
         {{ party_members }}; say where each is, nothing more. End "What do you do?"

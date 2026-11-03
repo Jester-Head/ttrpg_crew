@@ -6,6 +6,7 @@ from ttrpg_crew.game.rolls import (
     RollRequest,
     parse_roll_request,
     resolve_roll,
+    roll_allowed,
     strip_roll_tag,
 )
 from ttrpg_crew.game.validator import audit_gm
@@ -70,3 +71,37 @@ def test_roll_call_does_not_need_a_question():
     rules = [v.rule for v in audit_gm(text, require_prompt=False)]
     assert "missing_prompt" not in rules
     assert "missing_prompt" in [v.rule for v in audit_gm(text)]
+
+
+@pytest.mark.parametrize(
+    "text, skill, dc",
+    [
+        ("Roll: Investigation DC 18 (to locate the hidden ledger).", "Investigation", 18),
+        ("**Roll:** Negotiation (DC 17) – stakes: you may be denied.", "Negotiation", 17),
+    ],
+)
+def test_prose_roll_lines_count_and_are_stripped(text, skill, dc):
+    assert parse_roll_request(f"The cache is hidden.\n\n{text}") == RollRequest(skill, dc)
+    assert strip_roll_tag(f"The cache is hidden.\n\n{text}") == "The cache is hidden."
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["He rolls the dice. DC 15 is high.", "Rolling hills, DC 12 in the old notation."],
+)
+def test_ordinary_prose_is_not_a_roll(text):
+    assert parse_roll_request(text) is None
+
+
+@pytest.mark.parametrize(
+    "player_input, kind, rolled, allowed",
+    [
+        ("I threaten the clerk until he talks.", "action", False, True),
+        ("I ask Solange to take me to Pascal.", "question", False, False),
+        ("What would a berth cost?", "question", False, False),
+        ("", "open", False, False),
+        ("Intimidation: rolled 12 vs DC 15 — failure", "action", True, False),
+    ],
+)
+def test_rolls_only_on_the_players_own_action(player_input, kind, rolled, allowed):
+    assert roll_allowed(player_input, kind, rolled=rolled) is allowed

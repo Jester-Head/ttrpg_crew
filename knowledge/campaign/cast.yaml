@@ -1,51 +1,60 @@
-# Campaign Cast — the recurring NPCs this story turns on.  *** PLACEHOLDER. ***
+# Adventure cast — the people "What the Reading Says" turns on (frame.yaml).
 #
-# Names drawn from knowledge/name_banks/. Each ties (loosely, by name) to a clock
-# in frame.yaml. A compact summary is injected into the GM so these characters
-# stay consistent across scenes; INCIDENTAL NPCs are still generated on the fly
-# from the name banks — only the people who recur and matter live here.
+# Names drawn from knowledge/name_banks/. The GM sees an entry only once the hook
+# names them, a checkpoint introduces them, or they've been met in play, so
+# people arrive as the story reaches them. Incidental NPCs are still named on
+# the fly from the name banks.
 
 cast:
-  - name: Jessa Tamae
+  - name: Solange Harper
     species: Human
-    faction: unaligned (commoner)
-    role: patron
-    drives_clock: none
+    pronouns: she/her
+    faction: unaligned
+    role: the one asking
     goal: >
-      Get the stolen Tinctura of her dead sister to the Myelin Conclave to be
-      given a vessel, before the Sideric Clade reclaims and refines it.
-    voice: breathless, frightened, grateful to the point of tears
-    state: hunted and out of time. She is the "stranger" of the opening scene
+      Pascal still a person in law, and to not lose him the way she's losing
+      him already.
+    knows: How bad his days are, which she hides even from him.
+    voice: ""
 
-  - name: Damian Frost
+  - name: Pascal Spence
     species: Human
-    faction: Sideric Clade (Logician, Command track)
-    role: antagonist
-    drives_clock: The Clade Closes In
+    pronouns: he/him
+    faction: unaligned
+    role: the friend; would assay at Lapsed
     goal: >
-      Recover the flagged memory and the courier who moved it, and close the
-      breach quietly before it becomes a Command embarrassment.
-    voice: precise, unhurried, bloodless; calls sentiment "inefficient fuel"
-    state: assembling a recovery sweep, authorizing Vigil constructs
+      To be left alone, and to not be a burden. Half the time he doesn't know an
+      assay is coming.
+    knows: Things about his past he can't hold onto long enough to say.
+    voice: ""
 
-  - name: Aphreith Breezejumper
-    species: Katari
-    faction: Hollow Flame (Fracturer)
-    role: recruiter
-    drives_clock: The Hollow Flame's Patience
-    goal: >
-      Win the player's cross-faction courier access to crack a sealed Old Blood
-      vault, offering shelter from the Clade as the price of cooperation.
-    voice: warm, persuasive, idealistic with a blade under it
-    state: shadowing the player, making escalating offers
-
-  - name: Clara Moree
+  - name: Carmen Fulton
     species: Human
-    faction: Sideric Clade (Fellow, Scholar track)
-    role: ally
-    drives_clock: none
+    pronouns: they/them
+    faction: Census (assayer at the Assayer's Row)
+    role: the assayer
+    goal: To read honestly, and not be leaned on by any of the three factions.
+    knows: >
+      How readings are lobbied, and that two assayers can file different
+      readings for the same person.
+    voice: ""
+
+  - name: Brynn Goodman
+    species: Human
+    pronouns: they/them
+    faction: Hollow Flame (Dredge-Canals)
+    role: keeps people out of guardianship
     goal: >
-      Continue her Rendering-reversal research; she is the only person to come
-      back from the Dreg, and the player's one real hope against the slide.
-    voice: careful, weary, guardedly hopeful
-    state: indispensable to Command yet distrusted by her own track; hard to reach
+      Keep people out of guardianship. The Canals are safe only while collecting
+      there costs more than it's worth.
+    knows: Who has a berth at the Empty Lantern, and what it costs to get one.
+    voice: ""
+
+  - name: Javier Larsen
+    species: Human
+    pronouns: he/him
+    faction: unaligned (sells Spirit in the Downstairs)
+    role: Spirit seller
+    goal: His price.
+    knows: What a dose does in an assay, and what it does afterward.
+    voice: ""

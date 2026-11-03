@@ -35,8 +35,9 @@ from ttrpg_crew.game.scene_tracker import (
     tracker_config,
 )
 from ttrpg_crew.game.schemas import ModeratorSelection
+from ttrpg_crew.game.adventure import guidance, load_adventure, visible_cast
 from ttrpg_crew.game.moves import gm_task_key
-from ttrpg_crew.game.rolls import RollRequest, RollResult, resolve_roll
+from ttrpg_crew.game.rolls import RollRequest, RollResult, resolve_roll, roll_allowed
 from ttrpg_crew.game.stance import assign_stance
 from ttrpg_crew.game.speaker_policy import (
     calculate_soft_speaker_weights,
@@ -140,7 +141,9 @@ class TTRPGFlow:
 
         # The recurring campaign cast — injected each beat so these NPCs stay
         # consistent. Incidental NPCs are still generated from the name banks.
-        self.cast_brief = format_cast(load_campaign_cast())
+        self.cast = load_campaign_cast()
+        # The hook, checkpoints and ending the GM steers by (frame.yaml).
+        self.adventure = load_adventure(load_campaign_frame())
 
         # 1. Load character profiles.
         self.character_profiles = load_character_profiles()
@@ -169,7 +172,11 @@ class TTRPGFlow:
     def _new_game_state(self) -> GameState:
         """Opening state — the starting location comes from the campaign frame."""
         opening = (load_campaign_frame().get("opening") or {})
-        location = str(opening.get("location") or "").strip() or "Gloamvere City"
+        location = (
+            self.adventure.starting_location
+            or str(opening.get("location") or "").strip()
+            or "Gloamvere City"
+        )
         return GameState(
             campaign_premise="",
             location=location,
@@ -193,6 +200,21 @@ class TTRPGFlow:
         self.pending_roll = None
         return self._resolved_roll
 
+    def _opening_situation(self) -> str:
+        return self.adventure.hook if self.game_state.scene_type == "opening" else ""
+
+    def _story_vars(self) -> dict[str, str]:
+        """The hook (opening only) and the checkpoint/pressure/ending lines."""
+        gs = self.game_state
+        try:
+            press_after = int(config_section("checkpoints").get("press_after", 4))
+        except (TypeError, ValueError):
+            press_after = 4
+        return {
+            "opening_situation": self._opening_situation(),
+            **guidance(self.adventure, gs.checkpoint_index, gs.beats_since_progress, press_after),
+        }
+
     def _common_vars(self, *, player_input: str = "") -> dict[str, Any]:
         gs = self.game_state
         return {
@@ -200,7 +222,11 @@ class TTRPGFlow:
             # and high-value, so they go straight into the prompt every beat.
             "campaign_premise": gs.campaign_premise or load_premise(),
             "protagonist": self.protagonist,
-            "cast": self.cast_brief,
+            # Only people the story has reached; the rest wait for their
+            # checkpoint so the GM introduces them instead of listing them.
+            "cast": format_cast(
+                visible_cast(self.cast, self.adventure, gs.checkpoint_index, gs.active_npcs)
+            ),
             "name_pool": sample_name_pool(),
             "style_cues": sample_style_cues(),
             "scene_context": gs.location,
@@ -232,7 +258,7 @@ class TTRPGFlow:
         """
         if self.tier not in ("medium", "small") or not self.knowledge_ready:
             return ""
-        seed = player_input.strip() or self.game_state.location
+        seed = player_input.strip() or self._opening_situation() or self.game_state.location
         query = (
             f"{seed}. Factions, the memory economy, and key figures of "
             f"Gloamvere City relevant to this scene."
@@ -465,8 +491,15 @@ class TTRPGFlow:
             beat_intent=beat_intent,
             stances=stances,
             gm_task_key=beat_gm_key,
-            roll_result=roll_result,
-            allow_roll=bool(player_input.strip()) and not rolled,
+            # The GM gets the result plus, on a failure, that it can't end the
+            # scene; the prompt says so too, but models still shut the door.
+            roll_result=(
+                f"{roll_result} — it costs something, but the way stays open"
+                if rolled and not rolled.success
+                else roll_result
+            ),
+            story_vars=self._story_vars(),
+            allow_roll=roll_allowed(player_input, beat_intent.kind, rolled=rolled is not None),
             on_segment=on_segment,
             gm_text=gm_text,
             gm_only=gm_only,
@@ -557,6 +590,7 @@ class TTRPGFlow:
             party_names=party_names,
             suggestions=cfg["suggestions"],
             max_suggestion_chars=cfg["max_suggestion_chars"],
+            checkpoints=self._remaining_reached_when(),
         )
         raw = json_completion(
             self.tracker_llm, system, user, schema=SCENE_UPDATE_SCHEMA, name="scene_update"
@@ -564,6 +598,7 @@ class TTRPGFlow:
         update = parse_scene_update(raw)
         if update is None:
             session_log.diag(f"[tracker] unusable reply: {raw[:200]!r}")
+            self._advance_checkpoint(0, player_input)
             return []
 
         apply_scene_update(
@@ -582,7 +617,33 @@ class TTRPGFlow:
             f"npcs={len(self.game_state.active_npcs)}  "
             f"suggestions={self.game_state.suggested_actions}"
         )
+        self._advance_checkpoint(update.checkpoint_reached, player_input)
         return list(self.game_state.suggested_actions)
+
+    def _remaining_reached_when(self) -> list[str]:
+        return [
+            c.reached_when
+            for c in self.adventure.checkpoints[self.game_state.checkpoint_index:]
+        ]
+
+    def _advance_checkpoint(self, reached: int, player_input: str) -> None:
+        gs = self.game_state
+        remaining = len(self.adventure.checkpoints) - gs.checkpoint_index
+        if remaining <= 0:
+            return
+        if reached:
+            gs.checkpoint_index += min(reached, remaining)
+            gs.beats_since_progress = 0
+        elif player_input.strip():
+            # The opening isn't a stall: the player hasn't had a turn yet.
+            gs.beats_since_progress += 1
+        line = (
+            f"[checkpoint] index={gs.checkpoint_index}  reached={reached}  "
+            f"stalled={gs.beats_since_progress}"
+        )
+        if self.debug:
+            print(line)
+        session_log.diag(line)
 
     def _update_turn_counts(self, spoke_this_beat: list[str]) -> None:
         spoke = set(spoke_this_beat)
