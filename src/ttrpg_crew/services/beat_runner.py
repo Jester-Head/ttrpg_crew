@@ -8,6 +8,9 @@ from crewai import Agent, Crew, Process, Task
 from ttrpg_crew import session_log
 from ttrpg_crew.game.beat import Beat, BeatSegment
 from ttrpg_crew.game.intent import BeatIntent
+from ttrpg_crew.game.moves import companion_move
+from ttrpg_crew.game.rolls import parse_roll_request, strip_roll_tag
+from ttrpg_crew.game.stance import Stance, stance_directive
 from ttrpg_crew.game.validator import (
     audit,
     duplicate_companion_line,
@@ -20,9 +23,9 @@ from ttrpg_crew.prompts.directives import directive
 from ttrpg_crew.prompts.prompt_loader import (
     load_agent_config,
     load_task_config,
-    load_task_for_game_state,
 )
 from ttrpg_crew.services import direct_companions
+from ttrpg_crew.services.character_registry import examples_for
 from ttrpg_crew.services.llm_call import chat_completion
 
 
@@ -78,10 +81,41 @@ class PromptBackedBeatRunner:
         gm_intent: str,
         gm_should_frame_first: bool = True,
         beat_intent: BeatIntent | None = None,
-        stance_hints: dict[str, str] | None = None,
+        stances: dict[str, Stance | None] | None = None,
+        gm_task_key: str = "narrative",
+        roll_result: str = "",
+        allow_roll: bool = True,
         on_segment: Callable[[BeatSegment], None] | None = None,
     ) -> Beat:
-        stance_hints = stance_hints or {}
+        stances = stances or {}
+        situations = beat_intent.situations if beat_intent else []
+
+        # Which prompt each companion gets this beat, and voice lines picked
+        # for that moment rather than the same two every beat.
+        moves = {
+            sid: companion_move(sid, beat_intent, stances.get(sid), game_state_name)
+            for sid in selected_speakers
+        }
+        for sid, move in moves.items():
+            pool = self.companion_prompt_vars[sid].get("example_pool")
+            self.companion_prompt_vars[sid]["examples"] = examples_for(pool, move, situations)
+
+        def stance_vars(sid: str) -> dict[str, Any]:
+            stance = stances.get(sid)
+            return {
+                "stance_approach": stance.approach if stance else "",
+                "stance_strength": stance.strength if stance else 0,
+            }
+
+        def stance_line(sid: str) -> str:
+            # An agree/disagree prompt already states the stance in full.
+            if moves[sid] in ("agree", "disagree"):
+                return ""
+            return stance_directive(stances.get(sid))
+
+        prompt_keys = [f"GM={gm_task_key}"] if gm_should_frame_first else []
+        prompt_keys += [f"{sid}={move}" for sid, move in moves.items()]
+        self._diag("[prompt] " + "  ".join(prompt_keys))
 
         # Per-task timing + output capture. Tasks run sequentially, so each
         # callback fires in order; we record the gap since the previous task
@@ -124,6 +158,7 @@ class PromptBackedBeatRunner:
             "selected_speakers": selected_speakers,
             "companions_speaking": companions_speaking,
             "gm_intent": gm_intent,
+            "roll_result": roll_result,
         }
 
         beat = Beat()
@@ -134,7 +169,7 @@ class PromptBackedBeatRunner:
             if v.get("character_name")
         )
 
-        def finalize(label: str, text: str) -> str:
+        def finalize(label: str, text: str, *, require_prompt: bool = True) -> str:
             return self._finalize(
                 label,
                 text,
@@ -143,6 +178,7 @@ class PromptBackedBeatRunner:
                 companion_names=companion_names,
                 prior_companion_lines=prior_companion_lines,
                 on_segment=on_segment,
+                require_prompt=require_prompt,
             )
 
         # The GM runs in its own crew and is finalized before any companion
@@ -152,11 +188,11 @@ class PromptBackedBeatRunner:
         gm_task: Task | None = None
         gm_text = ""
         if gm_should_frame_first:
-            gm_task_config = load_task_for_game_state(
-                "gm",
+            gm_task_config = load_task_config(
+                "gm_tasks.yaml",
                 common_vars,
-                game_state_name,
                 tier=self.tier,
+                task_key=gm_task_key,
             )
             gm_task = Task(
                 description=gm_task_config["description"],
@@ -171,9 +207,24 @@ class PromptBackedBeatRunner:
             gm_crew.kickoff()
             self._log_crew_tokens(gm_crew, timings, 1)
             gm_raw = next((text for label, text in outputs if label == "GM"), "")
-            gm_text = finalize("GM", gm_raw)
+            # A roll call ends the beat: the roll line is the hand-back, and
+            # companions wait for the result instead of talking over it. Only
+            # the player's own action can call for a roll, so a tag in the
+            # opening or in a roll's result beat is dropped.
+            roll = parse_roll_request(gm_raw)
+            gm_raw = strip_roll_tag(gm_raw)
+            beat.pending_roll = roll if allow_roll else None
+            if beat.pending_roll is not None:
+                self._diag(
+                    f"[roll] requested {beat.pending_roll.skill} "
+                    f"DC {beat.pending_roll.dc}; companions wait"
+                )
+            gm_text = finalize("GM", gm_raw, require_prompt=beat.pending_roll is None)
+            if beat.pending_roll is not None:
+                beat.closing_prompt = ""
 
-        if self.direct_companions:
+        companions_speak = beat.pending_roll is None
+        if companions_speak and self.direct_companions:
             # Feed each companion what has been said this beat (GM frame, then
             # prior companions) so they react in context, mirroring the CrewAI
             # path's task `context`. Prompt assembly + the LLM call live in
@@ -185,16 +236,17 @@ class PromptBackedBeatRunner:
                     **common_vars,
                     **self.companion_prompt_vars[speaker_id],
                     "party_members": self._party_for(speaker_id, protagonist_name),
+                    **stance_vars(speaker_id),
                     "beat_directives": self._beat_directives(
                         speaker_id, beat_intent, selected_speakers, companion_said,
                         player_input=player_input,
-                        stance_hint=stance_hints.get(speaker_id, ""),
+                        stance_hint=stance_line(speaker_id),
                     ),
                 }
                 system, user, name = direct_companions.companion_messages(
                     agent=self.companion_agents[speaker_id],
                     merged_vars=merged_vars,
-                    game_state_name=game_state_name,
+                    task_key=moves[speaker_id],
                     tier=self.tier,
                     said_so_far=said,
                 )
@@ -212,28 +264,29 @@ class PromptBackedBeatRunner:
                 text = finalize(speaker_id, text)
                 said.append(f"{name}: {text}")
                 companion_said.append(f"{name}: {text}")
-        elif selected_speakers:
+        elif companions_speak and selected_speakers:
             tasks: list[Task] = []
             for speaker_id in selected_speakers:
                 companion_vars = {
                     **common_vars,
                     **self.companion_prompt_vars[speaker_id],
                     "party_members": self._party_for(speaker_id, protagonist_name),
+                    **stance_vars(speaker_id),
                     # Tasks are built before any output exists, so this carries
                     # intent + who else speaks + anti-echo (no said-lines yet;
                     # those arrive at runtime via the task context).
                     "beat_directives": self._beat_directives(
                         speaker_id, beat_intent, selected_speakers,
                         player_input=player_input,
-                        stance_hint=stance_hints.get(speaker_id, ""),
+                        stance_hint=stance_line(speaker_id),
                     ),
                 }
 
-                companion_task_config = load_task_for_game_state(
-                    "companion",
+                companion_task_config = load_task_config(
+                    "companion_tasks.yaml",
                     companion_vars,
-                    game_state_name,
                     tier=self.tier,
+                    task_key=moves[speaker_id],
                 )
 
                 # The GM task already ran in its own crew; CrewAI reads a
@@ -264,7 +317,10 @@ class PromptBackedBeatRunner:
             parts = "  ".join(f"{label}={secs:.1f}s" for label, secs in timings)
             self._diag(f"[timing] beat breakdown: {parts}")
 
-        session_log.beat(player_input.strip() or "Opening", str(beat))
+        logged = str(beat)
+        if beat.pending_roll is not None:
+            logged += f"\n\nRoll {beat.pending_roll.skill} (DC {beat.pending_roll.dc})"
+        session_log.beat(player_input.strip() or "Opening", logged)
         return beat
 
     def _finalize(
@@ -277,6 +333,7 @@ class PromptBackedBeatRunner:
         companion_names: tuple[str, ...],
         prior_companion_lines: list[str],
         on_segment: Callable[[BeatSegment], None] | None,
+        require_prompt: bool = True,
     ) -> str:
         """Audit one output, edit it if flagged, and deliver it as a segment.
 
@@ -298,6 +355,7 @@ class PromptBackedBeatRunner:
             protagonist_name=protagonist_name,
             companions=companion_names,
             character_name=character_name,
+            require_prompt=require_prompt,
         )
         if label != "GM":
             dup = duplicate_companion_line(text, prior_companion_lines)
@@ -314,6 +372,7 @@ class PromptBackedBeatRunner:
                 protagonist_name=protagonist_name,
                 companions=companion_names,
                 character_name=character_name,
+                require_prompt=require_prompt,
             )
             if label != "GM":
                 dup = duplicate_companion_line(edited, prior_companion_lines)

@@ -18,7 +18,7 @@ _defaults:
     How to respond — act AND speak, first person, in the moment:
     - First person active: "I check the door", "I say...". Describe what you DO
       and what you SAY together, like a player at the table.
-    - 2-5 sentences, spoken as a character in a 19th-century novel speaks:
+    - 2-5 sentences, spoken as a character in a 19th-century novel speaks —
       period idiom and manners, contractions where natural, no modern slang.
       One thought, not a monologue.
     - No filler self-staging ("my voice drops to a hum", "I shift my weight") —
@@ -122,6 +122,56 @@ combat:
   expected_output: >
     1-2 sentences of in-character action or dialogue, or [observes].
 
+answer:
+  description: >
+    {{ protagonist_name }} has spoken to you directly — "{{ player_input }}"
+    Your whole job this beat is to answer them as {{ character_name }} would —
+    what you think, what you know, or why you won't say. Answer what was asked,
+    then stop. Don't take over the scene or decide anything for them.
+
+    Scene context:
+    {{ scene_context }}
+
+    Recent story:
+    {{ recent_story }}
+
+  expected_output: >
+    Your answer to {{ protagonist_name }}, spoken, with at most one brief action.
+
+disagree:
+  description: >
+    {{ protagonist_name }} is taking the {{ stance_approach }} approach — "{{ player_input }}"
+    {% if stance_strength >= 2 %}{{ character_name }} is against it and won't let
+    it pass unsaid.{% else %}{{ character_name }} has doubts about it worth
+    voicing.{% endif %} Your whole job this beat is to object — say what's wrong
+    with it as you see it, and what you'd do instead if you have something. The
+    choice stays theirs.
+
+    Scene context:
+    {{ scene_context }}
+
+    Recent story:
+    {{ recent_story }}
+
+  expected_output: >
+    Your objection, spoken, with at most one brief action.
+
+agree:
+  description: >
+    {{ protagonist_name }} is taking the {{ stance_approach }} approach — "{{ player_input }}"
+    {{ character_name }} is for it{% if stance_strength >= 2 %}, strongly{% endif %}.
+    Your whole job this beat is to back it — why it suits you, or what you'd
+    bring to it. Don't take it over or carry it out ahead of them.
+
+    Scene context:
+    {{ scene_context }}
+
+    Recent story:
+    {{ recent_story }}
+
+  expected_output: >
+    Your backing, spoken, with at most one brief action.
+
 model_tiers:
   medium:
     _defaults:
@@ -169,6 +219,29 @@ model_tiers:
       description: >
         Resume. Max one callback line from recap, else present scene. [observes] ok.
 
+    answer:
+      description: >
+        {{ protagonist_name }} spoke to you directly — "{{ player_input }}"
+        Answer them as {{ character_name }} — what you think, what you know, or
+        why you won't say — then stop. Scene: {{ scene_context }}.
+        {% if recent_story %}Recent story: {{ recent_story }}{% endif %}
+
+    disagree:
+      description: >
+        {{ protagonist_name }} is taking the {{ stance_approach }} approach —
+        "{{ player_input }}" You're against it{% if stance_strength >= 2 %},
+        firmly{% endif %}. Object as {{ character_name }} — what's wrong with it,
+        and what you'd do instead. The choice stays theirs. Scene: {{ scene_context }}.
+        {% if recent_story %}Recent story: {{ recent_story }}{% endif %}
+
+    agree:
+      description: >
+        {{ protagonist_name }} is taking the {{ stance_approach }} approach —
+        "{{ player_input }}" You're for it{% if stance_strength >= 2 %},
+        strongly{% endif %}. Back it as {{ character_name }} — why it suits you, or
+        what you'd bring. Don't take it over. Scene: {{ scene_context }}.
+        {% if recent_story %}Recent story: {{ recent_story }}{% endif %}
+
   small:
     _defaults:
       description: >
@@ -201,3 +274,23 @@ model_tiers:
     session_resume:
       description: >
         Resume. One line max or [observes].
+
+    answer:
+      description: >
+        {{ protagonist_name }} asked you directly — "{{ player_input }}" Answer
+        it as {{ character_name }}, then stop. Scene: {{ scene_context }}.
+        {% if recent_story %}Happening now: {{ recent_story }}{% endif %}
+
+    disagree:
+      description: >
+        You're against {{ protagonist_name }}'s {{ stance_approach }} approach{% if stance_strength >= 2 %}, firmly{% endif %} —
+        "{{ player_input }}" Say why as {{ character_name }}. The choice stays
+        theirs. Scene: {{ scene_context }}.
+        {% if recent_story %}Happening now: {{ recent_story }}{% endif %}
+
+    agree:
+      description: >
+        You back {{ protagonist_name }}'s {{ stance_approach }} approach —
+        "{{ player_input }}" Say why as {{ character_name }}. Don't take it over.
+        Scene: {{ scene_context }}.
+        {% if recent_story %}Happening now: {{ recent_story }}{% endif %}

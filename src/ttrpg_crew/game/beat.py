@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from ttrpg_crew.game.rolls import RollRequest
+
 
 @dataclass
 class BeatSegment:
@@ -38,6 +40,8 @@ class Beat:
     # by the scene tracker; deliberately left out of str(beat), so they never
     # enter the transcript or the story the models read.
     suggested_actions: list[str] = field(default_factory=list)
+    # Set when the GM ended the beat on a [ROLL:] call; kept out of str(beat).
+    pending_roll: RollRequest | None = None
 
     def __str__(self) -> str:
         lines = [seg.render() for seg in self.segments if seg.text]

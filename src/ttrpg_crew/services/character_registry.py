@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from pathlib import Path
 from typing import Any
 
@@ -77,9 +78,31 @@ def build_character_prompt_vars(
         "character_name": character_name,
         # Few-shot voice examples (companion_tasks.yaml injects these). Guaranteed
         # present so the StrictUndefined template never trips on a character that
-        # has none.
-        "examples": character_profile.get("examples", []),
+        # has none. The beat runner re-picks them per beat from example_pool.
+        "example_pool": character_profile.get("examples") or [],
+        "examples": examples_for(character_profile.get("examples"), "", []),
     }
+
+
+def examples_for(
+    examples: Any,
+    move: str,
+    situations: list[str] | tuple[str, ...],
+    k: int = 2,
+) -> list[str]:
+    """Up to k voice lines for this moment — the move's lines, else the first
+    detected situation that has lines, else `default`.
+
+    `examples` is a character's `examples:` value — a mapping keyed by move /
+    situation / default, or a plain list (treated as default). Sampling keeps a
+    companion from seeing, and copying, the same lines every beat.
+    """
+    pools = examples if isinstance(examples, dict) else {"default": examples or []}
+    for key in (move, *situations, "default"):
+        lines = [str(line) for line in pools.get(key) or []]
+        if lines:
+            return random.sample(lines, min(k, len(lines)))
+    return []
 
 
 def build_all_character_prompt_vars(

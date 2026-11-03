@@ -35,3 +35,12 @@ manager:
   narrative: narrative
   exploration: narrative
   social: narrative
+
+# GM prompt for a narrative beat, by the situation tags the player's input
+# implies (speaker_policy._SITUATION_KEYWORDS). First match wins, so order is
+# priority. A task key missing from gm_tasks.yaml falls back to narrative.
+gm_situations:
+  negotiation: social
+  social: social
+  investigation: investigation
+  moral_dilemma: dilemma

@@ -228,15 +228,25 @@ def run():
         cue = "The party gathers" if first else "The world responds"
         print(f"\n{cue}… (a moment on a local model)\n", flush=True)
 
-        beat = flow.kickoff(player_input=player_input, on_segment=_print_segment)
-        if beat.closing_prompt:
-            print(beat.closing_prompt + "\n", flush=True)
+        rolled = flow.resolve_pending_roll()
+        if rolled:
+            print(f"{rolled.describe()}\n", flush=True)
 
-        # Suggested next moves, kept apart from the story so they read as
-        # options, not narration. Free-form typing always works too.
-        suggestions = beat.suggested_actions
-        for number, action in enumerate(suggestions, start=1):
-            print(f"  {number}. {action}", flush=True)
+        beat = flow.kickoff(player_input=player_input, on_segment=_print_segment)
+        suggestions: list[str] = []
+        if beat.pending_roll:
+            print(
+                f"Roll {beat.pending_roll.skill} (DC {beat.pending_roll.dc}) — press Enter to roll.",
+                flush=True,
+            )
+        else:
+            if beat.closing_prompt:
+                print(beat.closing_prompt + "\n", flush=True)
+            # Suggested next moves, kept apart from the story so they read as
+            # options, not narration. Free-form typing always works too.
+            suggestions = beat.suggested_actions
+            for number, action in enumerate(suggestions, start=1):
+                print(f"  {number}. {action}", flush=True)
 
         if first:
             hint = "Pick a number, or type your own action." if suggestions else (

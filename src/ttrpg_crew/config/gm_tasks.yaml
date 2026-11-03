@@ -37,7 +37,7 @@ _defaults:
       per beat.
     - Register: gothic / grimdark, written as a 19th-century novel is written,
       but PLAIN and concrete. Narration and dialogue use the idiom, manners and
-      forms of address of the 1800s; nothing modern or slangy. The mood comes
+      forms of address of the 1800s — nothing modern or slangy. The mood comes
       from what happens and what's at stake, not from ornate words. Choose the
       exact, everyday word of the period over a fancy one. Do NOT stack adjectives or pile on
       metaphors (no "dirge-like scent", no "stygian, caliginous gloom"); at most
@@ -81,7 +81,14 @@ _defaults:
     D&D (when mechanics apply):
     - Checks are d20 + modifier vs a DC. State stakes before any roll.
     - Never roll for the player. DC 10 Easy, 15 Medium, 20 Hard, 25 Very Hard.
+    - When an action needs a roll, say what's at stake and the DC, then end the
+      beat with [ROLL: Skill DC 15] and stop — the engine rolls and hands you the
+      result next beat. Never narrate the outcome before then.
     - Failed rolls: complications, not blocks — fail forward.
+    {% if roll_result %}
+    Roll result (rolled by the engine — narrate this outcome, don't change it):
+    {{ roll_result }}
+    {% endif %}
 
     Naming:
     - When you introduce a NEW named NPC, take a name from this list that fits
@@ -222,6 +229,108 @@ combat:
     brief enemy or environment reaction if needed. End with "What do you do?"
     or a clear prompt for their next choice in the fight.
 
+social:
+  description: >
+    Run the next story beat — {{ protagonist_name }} is dealing with someone, by
+    talk, bargain or pressure.
+
+    {% if recent_story %}
+    The story so far (this already happened — stay consistent with ALL of it:
+    who is present, what was said and done, every established fact. Continue
+    from the last line; never re-introduce the scene or contradict it):
+    {{ recent_story }}
+    {% endif %}
+
+    Scene context:
+    {{ scene_context }}
+
+    {% if scene_memory %}
+    Tracked so far (canon for this session; don't contradict it):
+    {{ scene_memory }}
+    {% endif %}
+
+    Player action or prompt:
+    {{ player_input }}
+
+    This beat is the other person's answer. Play them as someone with their own
+    want, fear and price — they answer from that. Show what the talk wins or
+    costs — a fact given up, a price named, a door shut — in what they say and do.
+
+    Campaign notes:
+    {{ campaign_notes }}
+
+  expected_output: >
+    The other person's response in their own words and actions, and what it
+    changed. End with a clear prompt (e.g. "What do you do?").
+
+investigation:
+  description: >
+    Run the next story beat — {{ protagonist_name }} is searching, examining or
+    working something out.
+
+    {% if recent_story %}
+    The story so far (this already happened — stay consistent with ALL of it:
+    who is present, what was said and done, every established fact. Continue
+    from the last line; never re-introduce the scene or contradict it):
+    {{ recent_story }}
+    {% endif %}
+
+    Scene context:
+    {{ scene_context }}
+
+    {% if scene_memory %}
+    Tracked so far (canon for this session; don't contradict it):
+    {{ scene_memory }}
+    {% endif %}
+
+    Player action or prompt:
+    {{ player_input }}
+
+    This beat is what they find. Give one concrete thing they learn, show what
+    it took to learn it — time, noise, being noticed, a favor — and leave what's
+    still hidden as a question, not an answer. State the stakes and DC before any roll.
+
+    Campaign notes:
+    {{ campaign_notes }}
+
+  expected_output: >
+    What they find and what it cost, shown through the scene. End with a clear
+    prompt (e.g. "What do you do?").
+
+dilemma:
+  description: >
+    Run the next story beat — {{ protagonist_name }} faces a choice where something
+    is lost either way.
+
+    {% if recent_story %}
+    The story so far (this already happened — stay consistent with ALL of it:
+    who is present, what was said and done, every established fact. Continue
+    from the last line; never re-introduce the scene or contradict it):
+    {{ recent_story }}
+    {% endif %}
+
+    Scene context:
+    {{ scene_context }}
+
+    {% if scene_memory %}
+    Tracked so far (canon for this session; don't contradict it):
+    {{ scene_memory }}
+    {% endif %}
+
+    Player action or prompt:
+    {{ player_input }}
+
+    This beat sets the choice out plainly — who is affected, what each path
+    costs, what happens if they wait. Don't choose for them or tip the scales.
+    Let each side have someone who'd pay for it.
+
+    Campaign notes:
+    {{ campaign_notes }}
+
+  expected_output: >
+    The choice laid out through people and stakes, with no option menu. End with
+    a clear prompt (e.g. "What do you do?").
+
 model_tiers:
   medium:
     _defaults:
@@ -250,13 +359,15 @@ model_tiers:
         Naming: name NEW NPCs from this list (fit the species, and match the
         pronoun tag he/him/she/her/they/them to the NPC); never invent generic
         names. Names — {{ name_pool }}
-        Register: gothic / grimdark in the plain voice of a 19th-century novel
-        (period idiom, no modern phrasing) — no stacked adjectives or ornate metaphors (no "dirge-like scent"); at most one vivid
+        Register: gothic / grimdark in the plain voice of a 19th-century novel —
+        period idiom, no modern phrasing, no stacked adjectives or ornate metaphors (no "dirge-like scent"); at most one vivid
         image per beat.{% if style_cues %} Phrasings you may use where they
         fit — each labeled with its lane (sense / part of speech); never use
         one outside its label, and adapt full sentences to the scene rather
         than pasting them: {{ style_cues }}.{% endif %}
         Cadence: Varied. Mix punchy sentence paragraphs with longer flowing thoughts.
+        Needs a roll: state the stakes and DC, end with [ROLL: Skill DC N], and stop.
+        {% if roll_result %}Roll result (rolled by the engine — narrate this outcome, don't change it): {{ roll_result }}{% endif %}
 
       expected_output: >
         2-5 sentences, then "What do you do?" Lead with people and stakes, not
@@ -290,6 +401,36 @@ model_tiers:
         Resume session. Recap: {{ session_recap }}. Scene: {{ scene_context }}.
         Brief recap then present moment. End with "What do you do?"
 
+    social:
+      description: >
+        Next beat — talk, bargain or pressure. Party: {{ party_members }}. Context: {{ scene_context }}.
+        {% if scene_memory %}Tracked so far (don't contradict): {{ scene_memory }}{% endif %}
+        {% if recent_story %}Story so far (already happened — continue from the
+        last line, stay consistent with every name, fact, and position in it;
+        never re-introduce the scene): {{ recent_story }}{% endif %}
+        Player: {{ player_input }}. The other person answers from their own want,
+        fear and price. Show what the talk wins or costs. d20 + modifier vs DC; stakes before rolls; fail forward.
+
+    investigation:
+      description: >
+        Next beat — searching or working something out. Party: {{ party_members }}. Context: {{ scene_context }}.
+        {% if scene_memory %}Tracked so far (don't contradict): {{ scene_memory }}{% endif %}
+        {% if recent_story %}Story so far (already happened — continue from the
+        last line, stay consistent with every name, fact, and position in it;
+        never re-introduce the scene): {{ recent_story }}{% endif %}
+        Player: {{ player_input }}. One concrete find, what it took to get, and
+        what stays hidden. d20 + modifier vs DC; stakes before rolls; fail forward.
+
+    dilemma:
+      description: >
+        Next beat — a choice where something is lost either way. Party: {{ party_members }}. Context: {{ scene_context }}.
+        {% if scene_memory %}Tracked so far (don't contradict): {{ scene_memory }}{% endif %}
+        {% if recent_story %}Story so far (already happened — continue from the
+        last line, stay consistent with every name, fact, and position in it;
+        never re-introduce the scene): {{ recent_story }}{% endif %}
+        Player: {{ player_input }}. Lay the choice out — who's affected, what each
+        path costs, what waiting costs. Don't choose for them or tip the scales.
+
   small:
     _defaults:
       description: >
@@ -306,6 +447,8 @@ model_tiers:
         Name NEW NPCs from this list (match the pronoun tag to the NPC), never generic names: {{ name_pool }}
         Gothic, in a 19th-century novel's voice, but PLAIN: concrete words, no modern phrasing, no stacked adjectives or fancy metaphors.{% if style_cues %} You may use (each only as its label says; adapt sentences, don't copy them): {{ style_cues }}.{% endif %}
         Varied cadence. Mix punchy sentence paragraphs with longer flowing thoughts.
+        Needs a roll: state the stakes and DC, end with [ROLL: Skill DC N], and stop.
+        {% if roll_result %}Roll result (rolled by the engine — narrate this outcome, don't change it): {{ roll_result }}{% endif %}
 
       expected_output: >
         2-5 sentences, then "What do you do?" People and stakes first, scenery
@@ -334,3 +477,30 @@ model_tiers:
     session_resume:
       description: >
         Recap: {{ session_recap }}. Now: {{ scene_context }}. Short recap + present.
+
+    social:
+      description: >
+        GM beat — talk, bargain or pressure. Player: {{ player_input }}. Scene: {{ scene_context }}.
+        {% if scene_memory %}Known: {{ scene_memory }}{% endif %}
+        {% if recent_story %}Story so far (continue it, stay consistent, never
+        restart the scene): {{ recent_story }}{% endif %}
+        The other person answers from their own want and price. Show what it
+        wins or costs. Never narrate the player.
+
+    investigation:
+      description: >
+        GM beat — searching. Player: {{ player_input }}. Scene: {{ scene_context }}.
+        {% if scene_memory %}Known: {{ scene_memory }}{% endif %}
+        {% if recent_story %}Story so far (continue it, stay consistent, never
+        restart the scene): {{ recent_story }}{% endif %}
+        One concrete find, what it cost, what stays hidden. Stakes before rolls.
+        Never narrate the player.
+
+    dilemma:
+      description: >
+        GM beat — a hard choice. Player: {{ player_input }}. Scene: {{ scene_context }}.
+        {% if scene_memory %}Known: {{ scene_memory }}{% endif %}
+        {% if recent_story %}Story so far (continue it, stay consistent, never
+        restart the scene): {{ recent_story }}{% endif %}
+        Lay out the choice — who's affected, what each path costs. Don't choose
+        for them. Never narrate the player.

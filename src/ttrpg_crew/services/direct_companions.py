@@ -19,7 +19,7 @@ import time
 from typing import Any
 
 from ttrpg_crew.prompts.directives import directive
-from ttrpg_crew.prompts.prompt_loader import load_task_for_game_state
+from ttrpg_crew.prompts.prompt_loader import load_task_config
 from ttrpg_crew.services.llm_call import chat_completion
 
 
@@ -27,7 +27,7 @@ def companion_messages(
     *,
     agent: Any,
     merged_vars: dict[str, Any],
-    game_state_name: str,
+    task_key: str,
     tier: str | None,
     said_so_far: list[str],
 ) -> tuple[str, str, str]:
@@ -40,7 +40,7 @@ def companion_messages(
     """
     name = str(merged_vars.get("character_name", "the companion"))
 
-    cfg = load_task_for_game_state("companion", merged_vars, game_state_name, tier=tier)
+    cfg = load_task_config("companion_tasks.yaml", merged_vars, tier=tier, task_key=task_key)
 
     system = "\n\n".join(
         part

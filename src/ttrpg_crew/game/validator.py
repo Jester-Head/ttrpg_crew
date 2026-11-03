@@ -160,6 +160,7 @@ def audit_gm(
     *,
     protagonist_name: str = "Player",
     companions: tuple[str, ...] = (),
+    require_prompt: bool = True,
 ) -> list[Violation]:
     violations: list[Violation] = []
 
@@ -210,7 +211,7 @@ def audit_gm(
             )
         )
 
-    if "?" not in text[-120:]:
+    if require_prompt and "?" not in text[-120:]:
         violations.append(
             Violation(
                 "missing_prompt",
@@ -597,10 +598,19 @@ def audit(
     protagonist_name: str = "Player",
     companions: tuple[str, ...] = (),
     character_name: str = "",
+    require_prompt: bool = True,
 ) -> list[Violation]:
-    """Dispatch: GM vs companion rules, plus shared AI-style checks."""
+    """Dispatch: GM vs companion rules, plus shared AI-style checks.
+
+    require_prompt=False when the beat ends on a roll call instead of a question.
+    """
     if label == "GM":
-        base = audit_gm(text, protagonist_name=protagonist_name, companions=companions)
+        base = audit_gm(
+            text,
+            protagonist_name=protagonist_name,
+            companions=companions,
+            require_prompt=require_prompt,
+        )
     else:
         base = audit_companion(
             text, protagonist_name=protagonist_name, character_name=character_name

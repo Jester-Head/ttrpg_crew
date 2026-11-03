@@ -35,7 +35,9 @@ from ttrpg_crew.game.scene_tracker import (
     tracker_config,
 )
 from ttrpg_crew.game.schemas import ModeratorSelection
-from ttrpg_crew.game.stance import assign_stance, stance_directive
+from ttrpg_crew.game.moves import gm_task_key
+from ttrpg_crew.game.rolls import RollRequest, RollResult, resolve_roll
+from ttrpg_crew.game.stance import assign_stance
 from ttrpg_crew.game.speaker_policy import (
     calculate_soft_speaker_weights,
     select_speakers,
@@ -110,6 +112,11 @@ class TTRPGFlow:
         # the moderator's model.
         self.tracker_llm = tracker_llm or self.manager_llm
         self.transcript = Transcript()
+        # A [ROLL:] the GM called last beat, the task key it was called under,
+        # and the engine's result once rolled.
+        self.pending_roll: RollRequest | None = None
+        self._roll_task_key = "narrative"
+        self._resolved_roll: RollResult | None = None
 
         # Fail fast with guidance if the campaign/lore/SRD corpus is missing
         # (e.g. installed wrong, or launched from a layout where the data root
@@ -170,6 +177,14 @@ class TTRPGFlow:
             return int(config_section("context").get("recent_story_chars", 4000))
         except (TypeError, ValueError):
             return 4000
+
+    def resolve_pending_roll(self) -> RollResult | None:
+        """Roll the pending check, if any. Always the engine's dice."""
+        if self.pending_roll is None:
+            return None
+        self._resolved_roll = resolve_roll(self.pending_roll)
+        self.pending_roll = None
+        return self._resolved_roll
 
     def _common_vars(self, *, player_input: str = "") -> dict[str, Any]:
         gs = self.game_state
@@ -319,6 +334,13 @@ class TTRPGFlow:
 
     def kickoff(self, *, player_input: str = "", on_segment: Any = None) -> Any:
         beat_start = time.perf_counter()
+        # After a roll call, this beat narrates the result. Whatever the player
+        # typed is ignored, so a check can't be skipped once its DC is known.
+        self.resolve_pending_roll()
+        rolled, self._resolved_roll = self._resolved_roll, None
+        roll_result = rolled.describe() if rolled else ""
+        if rolled:
+            player_input = roll_result
         common_vars = self._common_vars(player_input=player_input)
 
         # 3. Build prompt variables for each companion.
@@ -385,13 +407,17 @@ class TTRPGFlow:
 
         # Each selected companion's stance toward the player's approach (the old
         # AutoGen BanterGenerator, deterministic): the engine picks the move,
-        # the model performs it. Empty string = no stance this beat.
-        stance_hints = {
-            sid: stance_directive(
-                assign_stance(self.character_profiles.get(sid, {}), player_input)
-            )
+        # the model performs it. None = no stance this beat.
+        stances = {
+            sid: assign_stance(self.character_profiles.get(sid, {}), player_input)
             for sid in selection.selected_speakers
         }
+
+        beat_gm_key = (
+            self._roll_task_key
+            if rolled
+            else gm_task_key(self.game_state.scene_type, beat_intent.situations)
+        )
 
         beat_call_start = time.perf_counter()
         result = runner.run_beat(
@@ -414,17 +440,29 @@ class TTRPGFlow:
             gm_intent=selection.gm_intent,
             gm_should_frame_first=selection.gm_should_frame_first,
             beat_intent=beat_intent,
-            stance_hints=stance_hints,
+            stances=stances,
+            gm_task_key=beat_gm_key,
+            roll_result=roll_result,
+            allow_roll=bool(player_input.strip()) and not rolled,
             on_segment=on_segment,
         )
         beat_secs = time.perf_counter() - beat_call_start
 
         # 6. Update state and record continuity so the next beat remembers this
         # turn (the player's action, then the beat) and the scene advances.
-        self._update_turn_counts(selection.selected_speakers)
-        if player_input.strip():
+        spoke = [] if result.pending_roll else selection.selected_speakers
+        self._update_turn_counts(spoke)
+        if rolled:
+            self.transcript.append("Roll", f"{self.protagonist_name} — {roll_result}")
+        elif player_input.strip():
             self.transcript.append(self.protagonist_name, player_input.strip())
         self.transcript.append("GM", str(result))
+        if result.pending_roll:
+            self.pending_roll = result.pending_roll
+            self._roll_task_key = beat_gm_key
+            self.transcript.append(
+                "Roll", f"{result.pending_roll.skill}, DC {result.pending_roll.dc} (called)"
+            )
         tagged_location = self._advance_scene(str(result))
 
         # 7. Read the finished beat into scene memory + next-move suggestions.
@@ -434,7 +472,7 @@ class TTRPGFlow:
         )
         tracker_secs = time.perf_counter() - tracker_start
 
-        n_speakers = len(selection.selected_speakers)
+        n_speakers = len(spoke)
         gm_calls = 1 if selection.gm_should_frame_first else 0
         timing = (
             f"[timing] moderator={moderator_secs:.1f}s  "
