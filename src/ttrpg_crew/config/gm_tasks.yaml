@@ -35,9 +35,11 @@ _defaults:
       lingers — over genre texture and stacked adjectives.
     - Plain, active verbs. Vary sentence length.  Mix punchy sentence paragraphs with longer flowing thoughts but no more than one ornate image
       per beat.
-    - Register: gothic / grimdark, but PLAIN and concrete. The mood comes from
-      what happens and what's at stake, not from ornate words. Choose the exact,
-      everyday word over a fancy one. Do NOT stack adjectives or pile on
+    - Register: gothic / grimdark, written as a 19th-century novel is written,
+      but PLAIN and concrete. Narration and dialogue use the idiom, manners and
+      forms of address of the 1800s; nothing modern or slangy. The mood comes
+      from what happens and what's at stake, not from ornate words. Choose the
+      exact, everyday word of the period over a fancy one. Do NOT stack adjectives or pile on
       metaphors (no "dirge-like scent", no "stygian, caliginous gloom"); at most
       one vivid image per beat.
       {% if style_cues %}Natural phrasings you may reach for where they fit
@@ -248,8 +250,8 @@ model_tiers:
         Naming: name NEW NPCs from this list (fit the species, and match the
         pronoun tag he/him/she/her/they/them to the NPC); never invent generic
         names. Names — {{ name_pool }}
-        Register: gothic / grimdark, but PLAIN and concrete — no stacked
-        adjectives or ornate metaphors (no "dirge-like scent"); at most one vivid
+        Register: gothic / grimdark in the plain voice of a 19th-century novel
+        (period idiom, no modern phrasing) — no stacked adjectives or ornate metaphors (no "dirge-like scent"); at most one vivid
         image per beat.{% if style_cues %} Phrasings you may use where they
         fit — each labeled with its lane (sense / part of speech); never use
         one outside its label, and adapt full sentences to the scene rather
@@ -302,7 +304,7 @@ model_tiers:
         {% if companions_speaking %}{{ companions_speaking }} speak for themselves
         after you. frame only the world; don't voice or describe them.{% endif %}
         Name NEW NPCs from this list (match the pronoun tag to the NPC), never generic names: {{ name_pool }}
-        Gothic but PLAIN: concrete words, no stacked adjectives or fancy metaphors.{% if style_cues %} You may use (each only as its label says; adapt sentences, don't copy them): {{ style_cues }}.{% endif %}
+        Gothic, in a 19th-century novel's voice, but PLAIN: concrete words, no modern phrasing, no stacked adjectives or fancy metaphors.{% if style_cues %} You may use (each only as its label says; adapt sentences, don't copy them): {{ style_cues }}.{% endif %}
         Varied cadence. Mix punchy sentence paragraphs with longer flowing thoughts.
 
       expected_output: >
