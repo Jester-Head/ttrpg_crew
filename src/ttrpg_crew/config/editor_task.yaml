@@ -23,7 +23,7 @@ base:
       flagged problems, do not compress or expand it. Never scene description,
       never their own name in third person, never "What do you do?".
     - Never speak, act, or decide for {{ protagonist_name }}.
-    - Keep the gothic, 19th-century register (period idiom, nothing modern), but never stack adjectives. Stick to one strong adjective or detail. 
+    - Keep the gothic, 19th-century register — period idiom, nothing modern — but never stack adjectives. Stick to one strong adjective or detail. 
     - Never use predictable triplets (three parallel items in a row).
     - Never use formulaic "a ___ of" phrasing.
     {% if voice_examples %}

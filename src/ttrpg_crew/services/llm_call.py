@@ -27,7 +27,7 @@ def chat_completion(llm: Any, messages: list[dict[str, str]], **extra: Any) -> A
     model = getattr(llm, "model", None)
     if getattr(llm, "provider", None) in ("ollama", "ollama_chat"):
         # CrewAI's native Ollama client stores the bare model name, which
-        # LiteLLM can't route; its base_url is Ollama's OpenAI-style /v1.
+        # LiteLLM can't route — its base_url is Ollama's OpenAI-style /v1.
         model = f"openai/{model}"
     return litellm.completion(
         model=model,
