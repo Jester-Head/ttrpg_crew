@@ -319,7 +319,8 @@ class PromptBackedBeatRunner:
                 dup = duplicate_companion_line(edited, prior_companion_lines)
                 if dup:
                     remaining.append(dup)
-            if len(remaining) < len(violations):
+            # An empty edit passes every check, so it would always "win".
+            if edited.strip() and len(remaining) < len(violations):
                 text = edited
                 fixed = len(violations) - len(remaining)
                 self._diag(f"[audit] {label}: editor fixed {fixed}/{len(violations)} issue(s)")
