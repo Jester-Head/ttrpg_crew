@@ -126,10 +126,10 @@ class TTRPGFlow:
         # consistent. Incidental NPCs are still generated from the name banks.
         self.cast_brief = format_cast(load_campaign_cast())
 
-        # 1. Load character profiles (TODO: requires config/characters.yaml).
+        # 1. Load character profiles.
         self.character_profiles = load_character_profiles()
 
-        # 2. Load current game state (TODO: read from a save via storage.save_game).
+        # 2. Load current game state (in-memory; save/load is future work).
         self.game_state = game_state or self._new_game_state()
 
         # Ensure every enabled character has a CharacterState entry.
@@ -195,7 +195,6 @@ class TTRPGFlow:
             "party_members": ", ".join(
                 c.name for c in self.game_state.characters.values()
             ),
-            "protagonist": self.protagonist,
             "protagonist_name": self.protagonist_name,
         }
 

@@ -362,11 +362,17 @@ def _client():
     )
 
 
+_cached_collection = None
+
+
 def _collection():
-    """Get-or-create the persistent knowledge collection."""
-    return _client().get_or_create_collection(
-        _COLLECTION, embedding_function=_embedding_fn()
-    )
+    """Get-or-create the persistent knowledge collection, opened once per run."""
+    global _cached_collection
+    if _cached_collection is None:
+        _cached_collection = _client().get_or_create_collection(
+            _COLLECTION, embedding_function=_embedding_fn()
+        )
+    return _cached_collection
 
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*\S)\s*$")
@@ -472,6 +478,7 @@ def ensure_indexed(*, verbose: bool = True) -> int:
     the collection is rebuilt. Embedding errors propagate to the caller, which
     may choose to disable retrieval and continue.
     """
+    global _cached_collection
     ids, docs = _corpus_chunks()
     fingerprint = _corpus_fingerprint(ids)
 
@@ -488,6 +495,7 @@ def ensure_indexed(*, verbose: bool = True) -> int:
 
     # Stale or partial: start from an empty collection stamped with the new
     # fingerprint. A run that dies mid-add leaves a short count, caught above.
+    _cached_collection = None
     client.delete_collection(_COLLECTION)
     collection = client.create_collection(
         _COLLECTION,

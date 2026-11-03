@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
-_SAMPLING_ATTRS = ("temperature", "top_p", "frequency_penalty", "presence_penalty", "timeout")
+_SAMPLING_ATTRS = (
+    "temperature", "top_p", "frequency_penalty", "presence_penalty", "timeout", "max_tokens",
+)
 
 
 def chat_completion(llm: Any, messages: list[dict[str, str]], **extra: Any) -> Any:

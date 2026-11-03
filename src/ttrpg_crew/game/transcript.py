@@ -51,9 +51,3 @@ class Transcript:
             lines.append(line)
             used += len(line) + 1
         return "\n".join(reversed(lines))
-
-    def full_text(self) -> str:
-        return "\n".join(
-            f"[{entry.kind}] {entry.speaker}: {entry.message}"
-            for entry in self.entries
-        )

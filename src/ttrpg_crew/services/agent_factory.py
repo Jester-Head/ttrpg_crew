@@ -7,14 +7,13 @@ from crewai import Agent
 from ttrpg_crew.prompts.prompt_loader import load_agent_config
 
 
-AgentType = Literal["gm", "companion", "manager", "editor"]
+AgentType = Literal["gm", "companion", "manager"]
 
 
 _AGENT_FILES: dict[AgentType, str] = {
     "gm": "gm_agent.yaml",
     "companion": "companion_agent.yaml",
     "manager": "manager_agent.yaml",
-    "editor": "editor_agent.yaml",
 }
 
 

@@ -17,9 +17,13 @@ from ttrpg_crew.game.validator import (
     strip_speaker_label,
 )
 from ttrpg_crew.prompts.directives import directive
-from ttrpg_crew.prompts.prompt_loader import load_task_config, load_task_for_game_state
+from ttrpg_crew.prompts.prompt_loader import (
+    load_agent_config,
+    load_task_config,
+    load_task_for_game_state,
+)
 from ttrpg_crew.services import direct_companions
-from ttrpg_crew.services.agent_factory import build_agent
+from ttrpg_crew.services.llm_call import chat_completion
 
 
 class PromptBackedBeatRunner:
@@ -30,7 +34,7 @@ class PromptBackedBeatRunner:
         companion_prompt_vars: dict[str, dict[str, Any]],
         *,
         tier: str | None = None,
-        llm: str | None = None,
+        llm: Any = None,
         editor_llm: Any = None,
         auto_retry: bool = True,
         debug: bool = False,
@@ -78,12 +82,10 @@ class PromptBackedBeatRunner:
         on_segment: Callable[[BeatSegment], None] | None = None,
     ) -> Beat:
         stance_hints = stance_hints or {}
-        tasks: list[Task] = []
-        agents: list[Agent] = []
 
         # Per-task timing + output capture. Tasks run sequentially, so each
         # callback fires in order; we record the gap since the previous task
-        # and stash the raw text for the post-beat audit.
+        # and stash the raw text for the audit.
         timings: list[tuple[str, float]] = []
         outputs: list[tuple[str, str]] = []
         clock = {"last": 0.0}
@@ -124,9 +126,31 @@ class PromptBackedBeatRunner:
             "gm_intent": gm_intent,
         }
 
-        # GM always runs through CrewAI for now (keeps its search-tool option at
-        # the large tier). Companions either share that crew (default) or, when
-        # direct_companions is on, run as plain chat completions below.
+        beat = Beat()
+        prior_companion_lines: list[str] = []
+        companion_names = tuple(
+            str(v.get("character_name")).strip()
+            for v in self.companion_prompt_vars.values()
+            if v.get("character_name")
+        )
+
+        def finalize(label: str, text: str) -> str:
+            return self._finalize(
+                label,
+                text,
+                beat=beat,
+                protagonist_name=protagonist_name,
+                companion_names=companion_names,
+                prior_companion_lines=prior_companion_lines,
+                on_segment=on_segment,
+            )
+
+        # The GM runs in its own crew and is finalized before any companion
+        # starts, so its narration reaches the player without waiting on them.
+        # It always goes through CrewAI for now (keeps its search-tool option
+        # at the large tier).
+        gm_task: Task | None = None
+        gm_text = ""
         if gm_should_frame_first:
             gm_task_config = load_task_for_game_state(
                 "gm",
@@ -134,32 +158,26 @@ class PromptBackedBeatRunner:
                 game_state_name,
                 tier=self.tier,
             )
-
             gm_task = Task(
                 description=gm_task_config["description"],
                 expected_output=gm_task_config["expected_output"],
                 agent=self.gm_agent,
                 callback=_timed_cb("GM"),
             )
-
-            tasks.append(gm_task)
-            agents.append(self.gm_agent)
+            gm_crew = Crew(
+                agents=[self.gm_agent], tasks=[gm_task], process=Process.sequential, verbose=False
+            )
+            clock["last"] = time.perf_counter()
+            gm_crew.kickoff()
+            self._log_crew_tokens(gm_crew, timings, 1)
+            gm_raw = next((text for label, text in outputs if label == "GM"), "")
+            gm_text = finalize("GM", gm_raw)
 
         if self.direct_companions:
-            # GM (if any) runs in its own crew; companions are direct calls.
-            if tasks:
-                gm_crew = Crew(
-                    agents=agents, tasks=tasks, process=Process.sequential, verbose=False
-                )
-                clock["last"] = time.perf_counter()
-                gm_crew.kickoff()
-                self._log_crew_tokens(gm_crew, timings, len(tasks))
-
             # Feed each companion what has been said this beat (GM frame, then
             # prior companions) so they react in context, mirroring the CrewAI
             # path's task `context`. Prompt assembly + the LLM call live in
             # services/direct_companions.py.
-            gm_text = next((text for label, text in outputs if label == "GM"), "")
             said: list[str] = [f"GM: {gm_text}"] if gm_text else []
             companion_said: list[str] = []
             for speaker_id in selected_speakers:
@@ -186,17 +204,17 @@ class PromptBackedBeatRunner:
                     )
                 )
                 timings.append((speaker_id, secs))
-                outputs.append((speaker_id, text))
-                said.append(f"{name}: {text}")
-                companion_said.append(f"{name}: {text}")
                 tps = (completion_tokens / secs) if (completion_tokens and secs) else 0.0
                 self._diag(
                     f"[direct] {speaker_id}  prompt={prompt_tokens}  "
                     f"completion={completion_tokens}  {secs:.1f}s  {tps:.1f} tok/s"
                 )
-        else:
+                text = finalize(speaker_id, text)
+                said.append(f"{name}: {text}")
+                companion_said.append(f"{name}: {text}")
+        elif selected_speakers:
+            tasks: list[Task] = []
             for speaker_id in selected_speakers:
-                companion_agent = self.companion_agents[speaker_id]
                 companion_vars = {
                     **common_vars,
                     **self.companion_prompt_vars[speaker_id],
@@ -218,98 +236,109 @@ class PromptBackedBeatRunner:
                     tier=self.tier,
                 )
 
+                # The GM task already ran in its own crew; CrewAI reads a
+                # context task's stored output, so it still reaches companions.
                 companion_task = Task(
                     description=companion_task_config["description"],
                     expected_output=companion_task_config["expected_output"],
-                    agent=companion_agent,
-                    context=tasks.copy(),
+                    agent=self.companion_agents[speaker_id],
+                    context=([gm_task] if gm_task else []) + tasks,
                     callback=_timed_cb(speaker_id),
                 )
-
                 tasks.append(companion_task)
-                agents.append(companion_agent)
 
             crew = Crew(
-                agents=agents,
+                agents=[self.companion_agents[sid] for sid in selected_speakers],
                 tasks=tasks,
                 process=Process.sequential,
                 verbose=False,
             )
-
             clock["last"] = time.perf_counter()
             crew.kickoff()
             self._log_crew_tokens(crew, timings, len(tasks))
+            for label, text in outputs:
+                if label != "GM":
+                    finalize(label, text)
 
         if timings:
             parts = "  ".join(f"{label}={secs:.1f}s" for label, secs in timings)
             self._diag(f"[timing] beat breakdown: {parts}")
 
-        # Auditor: flag rule violations, then (if enabled) hand the offending
-        # output to a dedicated editor pass that fixes it minimally. The edit is
-        # kept only when it has strictly fewer violations, so it can never make
-        # the beat worse.
-        companion_names = tuple(
-            str(v.get("character_name")).strip()
-            for v in self.companion_prompt_vars.values()
-            if v.get("character_name")
-        )
-
-        beat = Beat()
-        prior_companion_lines: list[str] = []
-        for label, text in outputs:
-            self._diag(f"[output] {label}: {text}")
-            if label != "GM":
-                # A trailing "What do you do?" is never the companion's to say
-                # (transcript-format echo); strip it before auditing.
-                text = strip_companion_prompt(text)
-            violations = audit(
-                label,
-                text,
-                protagonist_name=protagonist_name,
-                companions=companion_names,
-                character_name=""
-                if label == "GM"
-                else str(
-                    self.companion_prompt_vars.get(label, {}).get("character_name", label)
-                ),
-            )
-            if label != "GM":
-                dup = duplicate_companion_line(text, prior_companion_lines)
-                if dup:
-                    violations.append(dup)
-            for v in violations:
-                self._diag(f"[audit] {label}: {v.rule} — {v.detail}")
-
-            if violations and self.auto_retry:
-                edited = self._edit_output(label, text, violations, protagonist_name)
-                remaining = audit(
-                    label, edited, protagonist_name=protagonist_name,
-                    companions=companion_names,
-                )
-                if len(remaining) < len(violations):
-                    text = edited
-                    fixed = len(violations) - len(remaining)
-                    self._diag(f"[audit] {label}: editor fixed {fixed}/{len(violations)} issue(s)")
-                else:
-                    self._diag(f"[audit] {label}: editor no better, kept original")
-
-            if label != "GM":
-                prior_companion_lines.append(text)
-
-            # The segment is final (audited + edited) the moment it leaves this
-            # loop iteration — deliver it to the streaming consumer immediately.
-            # Contract note: typing indicators will eventually need a
-            # "speaker started" signal too; expect this single-event hook to
-            # grow a sibling rather than treating its shape as settled.
-            segment = self._build_segment(label, text, beat)
-            if segment and on_segment is not None:
-                try:
-                    on_segment(segment)
-                except Exception as exc:  # a UI bug must never kill the beat
-                    self._diag(f"[segment] on_segment callback failed: {exc}")
-
         session_log.beat(player_input.strip() or "Opening", str(beat))
         return beat
+
+    def _finalize(
+        self,
+        label: str,
+        text: str,
+        *,
+        beat: Beat,
+        protagonist_name: str,
+        companion_names: tuple[str, ...],
+        prior_companion_lines: list[str],
+        on_segment: Callable[[BeatSegment], None] | None,
+    ) -> str:
+        """Audit one output, edit it if flagged, and deliver it as a segment.
+
+        The edit is kept only when it has strictly fewer violations, so it can
+        never make the beat worse. Returns the final text.
+        """
+        self._diag(f"[output] {label}: {text}")
+        character_name = ""
+        if label != "GM":
+            # A trailing "What do you do?" is never the companion's to say
+            # (transcript-format echo); strip it before auditing.
+            text = strip_companion_prompt(text)
+            character_name = str(
+                self.companion_prompt_vars.get(label, {}).get("character_name", label)
+            )
+        violations = audit(
+            label,
+            text,
+            protagonist_name=protagonist_name,
+            companions=companion_names,
+            character_name=character_name,
+        )
+        if label != "GM":
+            dup = duplicate_companion_line(text, prior_companion_lines)
+            if dup:
+                violations.append(dup)
+        for v in violations:
+            self._diag(f"[audit] {label}: {v.rule} — {v.detail}")
+
+        if violations and self.auto_retry:
+            edited = self._edit_output(label, text, violations, protagonist_name)
+            remaining = audit(
+                label,
+                edited,
+                protagonist_name=protagonist_name,
+                companions=companion_names,
+                character_name=character_name,
+            )
+            if label != "GM":
+                dup = duplicate_companion_line(edited, prior_companion_lines)
+                if dup:
+                    remaining.append(dup)
+            if len(remaining) < len(violations):
+                text = edited
+                fixed = len(violations) - len(remaining)
+                self._diag(f"[audit] {label}: editor fixed {fixed}/{len(violations)} issue(s)")
+            else:
+                self._diag(f"[audit] {label}: editor no better, kept original")
+
+        if label != "GM":
+            prior_companion_lines.append(text)
+
+        # Contract note: typing indicators will eventually need a "speaker
+        # started" signal too; expect this single-event hook to grow a sibling
+        # rather than treating its shape as settled.
+        segment = self._build_segment(label, text, beat)
+        if segment and on_segment is not None:
+            try:
+                on_segment(segment)
+            except Exception as exc:  # a UI bug must never kill the beat
+                self._diag(f"[segment] on_segment callback failed: {exc}")
+        return text
 
     def _build_segment(self, label: str, text: str, beat: Beat) -> BeatSegment | None:
         """Finalize one output into a BeatSegment appended to the beat.
@@ -460,29 +489,36 @@ class PromptBackedBeatRunner:
             "voice_examples": voice_examples,
         }
 
-        editor_agent = build_agent(
-            "editor",
-            editor_vars,
-            tier=self.tier,
-            llm=self.editor_llm,
-            verbose=self.debug,
-        )
+        # A plain chat call, not a CrewAI agent: a one-shot rewrite gains
+        # nothing from the agent loop, and only a direct call can be capped
+        # with max_tokens (see models.yaml `llm:`).
+        agent_config = load_agent_config("editor_agent.yaml", editor_vars, tier=self.tier)
         task_config = load_task_config(
             "editor_task.yaml",
             editor_vars,
             tier=self.tier,
             task_key="base",
         )
-        editor_task = Task(
-            description=task_config["description"],
-            expected_output=task_config["expected_output"],
-            agent=editor_agent,
+        system = "\n\n".join(
+            part
+            for part in (
+                agent_config["role"].strip(),
+                "Your goal: " + agent_config["goal"].strip(),
+                agent_config["backstory"].strip(),
+            )
+            if part
         )
-        crew = Crew(
-            agents=[editor_agent],
-            tasks=[editor_task],
-            process=Process.sequential,
-            verbose=False,
-        )
-        return normalize_rewrite(str(crew.kickoff()), character_name)
+        user = task_config["description"].strip()
+        if (task_config.get("expected_output") or "").strip():
+            user += "\n\nOutput: " + task_config["expected_output"].strip()
+        try:
+            resp = chat_completion(
+                self.editor_llm,
+                [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            )
+            raw = resp.choices[0].message.content or ""
+        except Exception as exc:
+            self._diag(f"[audit] {label}: editor call failed ({exc})")
+            return flagged_text
+        return normalize_rewrite(raw, character_name)
 
