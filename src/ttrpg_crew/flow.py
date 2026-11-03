@@ -77,6 +77,7 @@ class TTRPGFlow:
         game_state: GameState | None = None,
         tier: str | None = None,
         llm: Any = None,
+        companion_llm: Any = None,
         manager_llm: Any = None,
         editor_llm: Any = None,
         tracker_llm: Any = None,
@@ -97,6 +98,7 @@ class TTRPGFlow:
         self.debug = debug
         self.tier = tier
         self.llm = llm
+        self.companion_llm = companion_llm or llm
         # The moderator only emits speaker-selection JSON — it doesn't need the
         # big narration model. Route it to a faster model when one is provided,
         # otherwise reuse the main llm.
@@ -355,7 +357,7 @@ class TTRPGFlow:
                 "companion",
                 companion_prompt_vars[speaker_id],
                 tier=self.tier,
-                llm=self.llm,
+                llm=self.companion_llm,
                 verbose=self.debug,
             )
             for speaker_id in selection.selected_speakers
@@ -367,7 +369,7 @@ class TTRPGFlow:
             companion_agents=companion_agents,
             companion_prompt_vars=companion_prompt_vars,
             tier=self.tier,
-            llm=self.llm,
+            llm=self.companion_llm,
             editor_llm=self.editor_llm,
             debug=self.debug,
             direct_companions=self.use_direct_companions,

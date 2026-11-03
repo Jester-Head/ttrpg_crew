@@ -89,6 +89,7 @@ def _build_flow() -> TTRPGFlow:
         LOCAL_LLM_BASE_URL=http://localhost:1234/v1   # LM Studio server URL
         LOCAL_LLM_API_KEY=lm-studio                   # LM Studio ignores the value
         LOCAL_LLM_MODEL=...        # force a model id instead of auto-detecting
+        LOCAL_COMPANION_MODEL=...  # model for the AI companions (defaults to main)
         LOCAL_MANAGER_MODEL=...    # faster model for the moderator + scene tracker
         LOCAL_EDITOR_MODEL=...     # faster model for the AI-ism editor pass
         LOCAL_EDITOR_BASE_URL=...  # server for the editor model (defaults to main)
@@ -132,6 +133,9 @@ def _build_flow() -> TTRPGFlow:
     tier = os.getenv("TTRPG_CREW_MODEL_TIER") or resolve_tier_for_model(model_id)
     llm = _make_llm(model_id, base_params)
 
+    companion_model_id = os.getenv("LOCAL_COMPANION_MODEL")
+    companion_llm = _make_llm(companion_model_id, base_params) if companion_model_id else llm
+
     # Manager (LLM moderator) and editor get their own LLM with role sampling,
     # even on the GM's model — sampling is per-request, so no model swap. A
     # separate model id / endpoint is only used when its env var is set.
@@ -153,6 +157,7 @@ def _build_flow() -> TTRPGFlow:
     if debug:
         print(
             f"[ttrpg] model={model_id}  tier={tier}  "
+            f"companions={companion_model_id or model_id}  "
             f"manager={manager_model_id or model_id}  "
             f"editor={editor_model_id or model_id}  base_url={base_url}"
         )
@@ -176,6 +181,7 @@ def _build_flow() -> TTRPGFlow:
     session_log.set_meta(
         model=model_id,
         tier=tier,
+        companion_model=companion_model_id or model_id,
         manager_model=manager_model_id or model_id,
         editor_model=editor_model_id or model_id,
         direct_companions=use_direct_companions,
@@ -183,6 +189,7 @@ def _build_flow() -> TTRPGFlow:
 
     return TTRPGFlow(
         llm=llm,
+        companion_llm=companion_llm,
         manager_llm=manager_llm,
         editor_llm=editor_llm,
         tracker_llm=tracker_llm,
