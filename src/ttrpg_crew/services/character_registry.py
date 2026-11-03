@@ -41,7 +41,7 @@ def build_character_prompt_vars(
     Merge static character profile, shared prompt variables, and mutable state.
 
     Static profile:
-      name, ancestry, class, persona, speech patterns
+      name, species, class, persona, speech patterns
 
     Common vars:
       scene_context, recent_story, player_input, party_members

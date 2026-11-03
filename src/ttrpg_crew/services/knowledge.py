@@ -316,7 +316,7 @@ def format_protagonist(pc: dict[str, Any]) -> str:
     if not pc:
         return "An unnamed newcomer to Gloamvere City."
     name = str(pc.get("name", "")).strip() or "The protagonist"
-    tags = [str(pc.get(f, "")).strip() for f in ("pronouns", "ancestry")]
+    tags = [str(pc.get(f, "")).strip() for f in ("pronouns", "species")]
     tags = [t for t in tags if t]
     head = f"{name} ({', '.join(tags)})" if tags else name
     parts = [head]
