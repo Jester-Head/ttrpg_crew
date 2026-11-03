@@ -4,7 +4,7 @@
 # Each event introduces one benched companion from config/characters.yaml
 # (character_key matches the roster key); meeting the recruitment_condition
 # means flipping that companion to enabled: true. Prose modernized to current
-# canon (Iron Covenant -> Siderian Clade, Vestigium light -> censer-glow).
+# canon (Iron Covenant -> Sideric Clade, Vestigium light -> censer-glow).
 # Not yet wired into code — a recruitment/event system is future work; until
 # then these are GM-side material for introducing new party members.
 

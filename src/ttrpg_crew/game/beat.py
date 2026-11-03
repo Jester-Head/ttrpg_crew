@@ -18,6 +18,7 @@ class BeatSegment:
     speaker_id: str  # "GM" or the companion's id (e.g. "mireille")
     speaker_name: str  # display name: "GM" or the character's full name
     text: str
+    silent: bool = False  # a companion staying quiet: one bracketed action, no words
 
     @property
     def is_gm(self) -> bool:

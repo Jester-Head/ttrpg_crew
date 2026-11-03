@@ -21,6 +21,7 @@ tier_selection:
     # e.g. "llama-3.1-70b": large
     # e.g. "qwen2.5-7b": medium   # override if a 7B punches above its weight
     nemo: medium       # "nemo" carries no param count in its id; it's a 12B -> medium
+    glm-4.7-flash: medium  # no param count in its id; it's a 30B MoE (3B active)
   size_tiers:
     # "max billions of params": tier — first threshold the model fits under.
     8: small
@@ -32,7 +33,9 @@ tier_selection:
 retrieval:
   collection: ttrpg_knowledge
   sources:                 # which corpora get embedded for GM lookups
-    - "lore/*.md"
+    # Current lorebook (gitignored; fill it with scripts/sync_lore.py). The
+    # older lore/ copies predate the faction renames, so they're left out.
+    - "lore_private/*.md"
     - "rules/srd/*.md"
   chunk_chars: 1000        # target characters per chunk
   chunk_overlap: 150       # overlap carried between chunks
@@ -56,6 +59,9 @@ llm:
     top_p: 0.95
     frequency_penalty: 0.05  # gentle anti-repetition; curbs "slop" (try 0.05-0.07)
     timeout: 300            # seconds per call — guard against a hung generation
+    # Turns off built-in thinking (Gemma 4 thinks by default, ~10x slower per
+    # call). LM Studio ignores chat_template_kwargs.enable_thinking; this works.
+    extra_body: {reasoning_effort: none}
   manager:                 # speaker-selection moderator (only if TTRPG_LLM_MODERATOR=1)
     temperature: 0.2       # near-deterministic; it only emits a selection
   editor:                  # AI-ism rewrite pass — keep it faithful, low-variance
@@ -94,6 +100,8 @@ audit:
   cluster_min: 2             # flag this many distinct tier-2 cliche words
   density_min: 3             # flag this many tier-3 vague-intensifier words
   duplicate_similarity: 0.8  # 0-1; companion lines this similar count as echoes
+  silent_action_words: 20    # a bracketed action-only reply up to this long counts as silence
+  silent_repeat_similarity: 0.6  # 0-1; a silence this close to a recent one is swapped for silent_beats
 
 # Per-beat injection counts (services/knowledge.py). Read live.
 sampling:
@@ -110,13 +118,14 @@ evaluation:
   # LM Studio model ids to evaluate, in order. Override per run with CLI args:
   #   python scripts/eval_models.py model-a model-b
   models:
-    - mistralai/mistral-nemo-instruct-2407
+    - gemma-4-31b-it
+    - qwen3.8-27b
+    - glm-4.7-flash
     - mistral-small-3.2-24b-instruct-2506
-    - google/gemma-4-26b-a4b
-    - google/gemma-3-12b
-    - google/gemma-3-27b
-    - openai/gpt-oss-20b
-  context_length: 16384      # -c passed to lms load
+    - mistral-nemo-instruct-2407
+  # -c passed to lms load. 16384 overfills a 24 GB card with Gemma 4 31B Q4;
+  # the largest prompts seen are ~7k tokens.
+  context_length: 12288
   # LM Studio's CLI at its default install location. Use just `lms` if it's on your PATH.
   lms_path: ~/.lmstudio/bin/lms
   embedding_model: text-embedding-nomic-embed-text-v1.5  # reloaded after unload --all

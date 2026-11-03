@@ -11,7 +11,7 @@ def search_world_knowledge(query: str) -> str:
 
     Use this when you need a specific fact you don't already know — a faction's
     motives, a location, how a rule resolves, an NPC, the memory economy. Pass a
-    short natural-language query (e.g. "who runs the Siderian Clade" or "how
+    short natural-language query (e.g. "who runs the Sideric Clade" or "how
     does grappling work"). Returns the most relevant reference excerpts.
     """
     try:

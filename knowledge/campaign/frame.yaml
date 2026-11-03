@@ -20,8 +20,8 @@ premise: |
   Gloamvere City, torn from the sunlit world into the twilight demi-plane of
   Kavath, runs on memory, extracted, graded, and spent as currency. Three powers
   divide the trade: the Old Blood Council (who hoard ancestral memory in vaulted
-  Ossuaries), the Spiritus Conclave (artisans who weave memory into crafted
-  things), and the Siderian Clade (engineers who refine it into fuel and
+  Ossuaries), the Myelin Conclave (artisans who weave memory into crafted
+  things), and the Sideric Clade (engineers who refine it into fuel and
   constructs). Beneath them drift the Hollow Flame, who believe sacred memory
   belongs to everyone, and the Dregs, hollowed when their core selves were
   stripped away.
@@ -29,8 +29,9 @@ premise: |
   You are a Canalborne courier: a neutral carrier of corked memory-vials between
   districts that trust no one else's messengers. You go everywhere and belong
   nowhere, which is exactly why everyone uses you. But the work has marked you.
-  You have begun to Fray, the first stage of the Dreg Condition. The only hope on
-  record is Fellow Clara Moree, the single soul ever to come back.
+  You are Faded now, managing the gaps one rung down from Sound, and the slide
+  does not reverse on its own. The only hope on record is Fellow Clara Moree,
+  the single soul ever to come back from Rendering.
 
 # Where and how the story opens. The GM frames the first scene from this.
 opening:
@@ -38,8 +39,9 @@ opening:
   situation: >
     A stranger with a fraying coat and frightened eyes presses a sealed,
     cold-to-the-touch vial into your hands and begs you to courier it to the
-    Spiritus Conclave before dawn, no questions, for double the usual fee. They
-    do not say what is in it, only that the Siderian Clade must never get it back.
+    Myelin Conclave before the lantern towers turn, no questions, for double
+    the usual fee. They do not say what is in it, only that the Sideric Clade
+    must never get it back.
 
 # The dramatic question the campaign turns on.
 premise_hook: >
@@ -51,16 +53,16 @@ beats:
   - The Clade discovers the memory is gone and begins hunting the courier who took it.
   - The Hollow Flame offers protection in exchange for the player's cross-faction access.
   - The vial's memory proves to matter to more than its owner; the Clade fears it.
-  - The player seeks Fellow Clara Moree, the only soul to recover from Calcination.
+  - The player seeks Fellow Clara Moree, the only person ever to come back from Rendering.
   - A final choice: deliver, keep, destroy, or trade the memory and pay what it costs.
 
 # Clocks: looming threats that advance on their own (faster when the player
 # stalls or derails). When a clock fills, its consequence fires.
 clocks:
-  - name: The Fraying
+  - name: The Slide
     segments: 6
-    advances_when: the player overexerts, handles high-tier memory, or marks Stress
-    when_full: they slip from Fraying into Eroding (Dreg Condition, stage 2)
+    advances_when: the player sells a memory, takes a graft, or suffers acute memory damage
+    when_full: they drop a rung, from Faded to Lapsed
   - name: The Clade Closes In
     segments: 4
     advances_when: the player lingers, is recognized, or shows the vial in Clade ground
@@ -88,4 +90,4 @@ pacing:
     When the player engages a beat, ease off and follow them. When they stall or
     derail, advance a clock and let the consequence pull them back. Introduce
     combat through triggers and fiction (a clock filling, a line crossed), never
-    as a non-sequitur. Keep the Fraying personal: every cost lands on the player.
+    as a non-sequitur. Keep the slide personal: every cost lands on the player.

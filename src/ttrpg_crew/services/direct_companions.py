@@ -1,26 +1,21 @@
-"""The direct companion path: one plain chat completion per companion turn.
-
-The opt-in alternative (TTRPG_DIRECT_COMPANIONS=1) to the default CrewAI agent
-loop. It skips the Agent/Task/ReAct wrapper entirely, so the model spends no
-tokens on a discarded "Thought:" preamble — measured ~7x fewer completion
-tokens — at some cost in the in-scene interplay the CrewAI path showed in
-play-testing.
-
-Everything specific to this path lives here: assembling the system/user
-messages from the same persona + task YAML the CrewAI path uses (so an A/B
-isolates the wrapper, not the prompt content), and the litellm call itself.
-The beat orchestration (who speaks, directives, auditing) stays in
-beat_runner, shared by both paths.
+"""The direct companion path: one plain chat completion per companion turn, built
+from the same persona + task YAML as the CrewAI path so an A/B isolates the wrapper.
 """
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Any
 
 from ttrpg_crew.prompts.directives import directive
 from ttrpg_crew.prompts.prompt_loader import load_task_config
-from ttrpg_crew.services.llm_call import chat_completion
+from ttrpg_crew.services import llm_client
+
+# Models bold or indent the markers, and sometimes drop the colon (a bare
+# "SAY" line), so match them loosely.
+_SAY_RE = re.compile(r"^[\s*_]*SAY[\s*_]*(?::[\s*_]*|$\n?)", re.I | re.M)
+_NOTE_RE = re.compile(r"^[\s*_]*NOTE[\s*_]*:[\s*_]*", re.I)
 
 
 def companion_messages(
@@ -30,6 +25,8 @@ def companion_messages(
     task_key: str,
     tier: str | None,
     said_so_far: list[str],
+    think_first: bool = False,
+    closing: str = "",
 ) -> tuple[str, str, str]:
     """Assemble (system, user, display_name) for one direct companion call.
 
@@ -58,51 +55,50 @@ def companion_messages(
     user_parts.append(cfg["description"].strip())
     if (cfg.get("expected_output") or "").strip():
         user_parts.append("Output: " + cfg["expected_output"].strip())
-    user_parts.append(directive("respond_now", name=name))
+    if closing:
+        user_parts.append(closing)
+    user_parts.append(directive("think_first" if think_first else "respond_now", name=name))
     return system, "\n\n".join(user_parts), name
 
 
-def companion_call(
-    llm: Any, system: str, user: str, *, prefill: str = "", debug: bool = False
-) -> tuple[str, float, Any, Any]:
-    """One companion turn as a plain chat completion — no CrewAI/ReAct wrapper.
+def split_thought(text: str) -> tuple[str, str, bool]:
+    """Split a think-first reply into (note, spoken_line, marker_found).
 
-    `prefill` pre-shapes the reply by seeding the assistant turn (small models
-    hold format much better mid-answer). Not every OpenAI-compatible server
-    supports a trailing assistant message, so an empty or failed prefilled
-    call quietly retries without it.
-
-    Returns (text, seconds, prompt_tokens, completion_tokens). Token counts
-    are None when the call path can't report usage.
+    Without a SAY: marker, a leading NOTE: paragraph is still dropped so the
+    private note never reaches the story.
     """
-    base_messages = [
+    matches = list(_SAY_RE.finditer(text))
+    if matches:
+        last = matches[-1]
+        note = _NOTE_RE.sub("", text[: last.start()], count=1).strip()
+        return note, text[last.end():].strip(), True
+    if _NOTE_RE.match(text):
+        note, _, rest = text.partition("\n\n")
+        if not rest.strip():
+            note, _, rest = text.partition("\n")
+        return _NOTE_RE.sub("", note, count=1).strip(), rest.strip(), False
+    return "", text.strip(), False
+
+
+def companion_call(
+    llm: Any, system: str, user: str, *, label: str = "companion", debug: bool = False
+) -> llm_client.ChatResult:
+    """One companion turn as a plain chat completion, no CrewAI/ReAct wrapper.
+
+    Falls back to the CrewAI LLM wrapper (text only, no token counts) if the
+    direct request fails, so a server quirk can't kill the beat.
+    """
+    messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
-    start = time.perf_counter()
-    text, prompt_tokens, completion_tokens = "", None, None
-
-    def _call(messages):
-        return chat_completion(llm, messages)
-
     try:
-        resp = None
-        if prefill:
-            try:
-                resp = _call(base_messages + [{"role": "assistant", "content": prefill}])
-                if not (resp.choices[0].message.content or "").strip():
-                    resp = None  # server ignored the prefill; retry plain
-            except Exception:
-                resp = None
-        if resp is None:
-            prefill = ""
-            resp = _call(base_messages)
-        text = (prefill + (resp.choices[0].message.content or "")).strip()
-        usage = getattr(resp, "usage", None)
-        prompt_tokens = getattr(usage, "prompt_tokens", None)
-        completion_tokens = getattr(usage, "completion_tokens", None)
-    except Exception as exc:  # fall back to the crewai wrapper (text only)
+        # Stops a runaway early; a 2-5 sentence line plus a think-first note
+        # fits well inside this.
+        return llm_client.chat(llm, messages, max_tokens=600, label=label)
+    except Exception as exc:
         if debug:
-            print(f"[direct] litellm.completion failed ({exc}); using llm.call")
-        text = str(llm.call(base_messages)).strip()
-    return text, time.perf_counter() - start, prompt_tokens, completion_tokens
+            print(f"[direct] chat completion failed ({exc}); using llm.call")
+        start = time.perf_counter()
+        text = str(llm.call(messages)).strip()
+        return llm_client.ChatResult(text=text, seconds=time.perf_counter() - start)

@@ -30,6 +30,8 @@ _DEFAULT_AUDIT = {
     "cluster_min": 2,
     "density_min": 3,
     "duplicate_similarity": 0.8,
+    "silent_action_words": 20,
+    "silent_repeat_similarity": 0.6,
 }
 
 
@@ -245,6 +247,41 @@ def extract_closing_prompt(text: str) -> tuple[str, str]:
     if not m:
         return text, ""
     return text[: m.start()].rstrip(), m.group(0).strip(' "*_\n')
+
+
+_STANDALONE_PROMPT_RE = re.compile(
+    r"^[ \t*_]*" + CLOSING_PROMPT_WORDS + r"[ \t*_]*\??[ \t*_]*$", re.I | re.M
+)
+_SENTENCE_END_RE = re.compile(r"[.!?][\"”'*_)\]]*(?=\s|$)")
+_RUNAWAY_MAX_CHARS = {"GM": 3000, "companion": 1200}
+
+
+def trim_runaway(text: str, *, is_gm: bool) -> str:
+    """Cut a looping or runaway generation down to its first pass.
+
+    Local models sometimes repeat a whole block dozens of times, which also
+    overflows the next speaker's context. GM text with more than one hand-back
+    prompt on a line of its own stops after the first (prompts inside dialogue
+    don't count), repeated paragraphs are dropped, and anything still too long
+    is cut at the last sentence end inside the limit.
+    """
+    if is_gm:
+        prompts = list(_STANDALONE_PROMPT_RE.finditer(text))
+        if len(prompts) > 1:
+            text = text[: prompts[0].end()]
+    kept, seen = [], set()
+    for para in re.split(r"\n\s*\n", text):
+        key = " ".join(para.lower().split())
+        if key and key in seen:
+            continue
+        seen.add(key)
+        kept.append(para)
+    text = "\n\n".join(kept).strip()
+    limit = _RUNAWAY_MAX_CHARS["GM" if is_gm else "companion"]
+    if len(text) <= limit:
+        return text
+    ends = [m.end() for m in _SENTENCE_END_RE.finditer(text, 0, limit)]
+    return text[: ends[-1]] if ends else text[:limit]
 
 
 def strip_companion_prompt(text: str) -> str:
@@ -585,9 +622,152 @@ def duplicate_companion_line(text: str, prior_lines: list[str]) -> Violation | N
                 suggestion=(
                     "say something different, in this character's OWN voice and "
                     "manner — react to the same moment from their angle, or stay "
-                    "silent with [observes]"
+                    "silent with one short bracketed action"
                 ),
             )
+    return None
+
+
+_FORMAT_LEAK_RE = re.compile(
+    r"^[\s*_]*(?:Thought|Final Answer|Action Input|Action|Observation|NOTE|SAY)[\s*_]*:"
+    r"|</?think>|```",
+    re.I | re.M,
+)
+_MARKDOWN_RE = re.compile(r"^\s*(?:#{1,6}\s|[-*•]\s+\S)|\*\*[^*\n]+\*\*", re.M)
+_QUOTED_RE = re.compile(r"\"[^\"]*\"|“[^”]*”")
+
+
+def format_leak(text: str) -> Violation | None:
+    """Scaffolding that reached the story: ReAct markers, think tags, fences."""
+    m = _FORMAT_LEAK_RE.search(text)
+    if m:
+        return Violation("format_leak", f"prompt scaffolding in output: {_snippet(m)}")
+    return None
+
+
+_OBSERVES_RE = re.compile(r"\[\s*(?:i\s+)?observ(?:es?|ation)\s*\]", re.I)
+
+
+def observes_tag(text: str, *, may_observe: bool) -> Violation | None:
+    """An [observes] tag that isn't a legitimate silent reply: mixed into a
+    spoken line, or from a companion who had to speak."""
+    m = _OBSERVES_RE.search(text)
+    if not m:
+        return None
+    if not _OBSERVES_RE.sub("", text).strip():
+        if may_observe:
+            return None
+        return Violation("observes_tag", "went silent with [observes] when it had to speak")
+    return Violation("observes_tag", f"[observes] mixed into a reply: {_snippet(m)}")
+
+
+def strip_observes(text: str) -> str:
+    """Remove [observes] tags, leaving whatever else the reply said."""
+    return re.sub(r"[ \t]{2,}", " ", _OBSERVES_RE.sub("", text)).strip()
+
+
+_SILENT_RE = re.compile(r"^\[([^\[\]\"“”]+)\]$")
+
+
+def silent_action(text: str) -> str | None:
+    """The action, when the whole reply is one short bracketed action with no
+    words spoken: a companion choosing to stay quiet."""
+    m = _SILENT_RE.match(text.strip())
+    if not m or _OBSERVES_RE.fullmatch(text.strip()):
+        return None
+    action = m.group(1).strip()
+    if not action or len(action.split()) > _audit_cfg()["silent_action_words"]:
+        return None
+    return action
+
+
+def repeats_silent_action(action: str, recent: list[str]) -> bool:
+    """Whether `action` is close to one of this companion's recent silences."""
+    from difflib import SequenceMatcher
+
+    threshold = _audit_cfg()["silent_repeat_similarity"]
+    mine = action.lower()
+    return any(SequenceMatcher(None, mine, r.lower()).ratio() >= threshold for r in recent)
+
+
+def assistant_speak(text: str) -> Violation | None:
+    """Chatbot phrasing or markdown formatting in an in-character line."""
+    phrases = _word_list_re("assistant_speak.txt")
+    m = phrases.search(text) if phrases else None
+    if m:
+        return Violation("assistant_speak", f"assistant phrasing: {_snippet(m)}")
+    m = _MARKDOWN_RE.search(text)
+    if m:
+        return Violation("assistant_speak", f"markdown formatting: {_snippet(m)}")
+    return None
+
+
+def acts_as_other(text: str, other_companions: tuple[str, ...]) -> list[Violation]:
+    """A companion speaking or acting for another companion.
+
+    Quoted dialogue is ignored so addressing a companion by name ("Sirra,
+    watch the door") isn't flagged.
+    """
+    violations: list[Violation] = []
+    narration = _QUOTED_RE.sub(" ", text)
+    for other in other_companions:
+        verb_re, body_re, _quote_re, line_label_re = _companion_voice_res(other)
+        for pattern in (verb_re, body_re, line_label_re):
+            m = pattern.search(narration)
+            if m:
+                violations.append(
+                    Violation("acts_as_other", f"speaks or acts for {other}: {_snippet(m)}")
+                )
+                break
+    return violations
+
+
+_TAKE_VERBS = r"(?:take|takes|took|grab|grabs|pocket|pockets|seize|seizes|snatch|snatches|pry|pries|tuck|tucks|secure|secures|pick\s+up|picks\s+up|stash|stashes)"
+_GIVE_VERBS = r"(?:give|gives|gave|hand|hands|return|returns|pass|passes|slide|slides)"
+# Handling the object without taking it still undercuts the player.
+_HANDLE_VERBS = (
+    r"(?:examine|examines|inspect|inspects|tap|taps|uncork|uncorks|unstopper|unstoppers|"
+    r"open|opens|check|checks|flip|flips|cradle|cradles|turn\s+over|turns\s+over|"
+    r"hold\s+up|holds\s+up)"
+)
+_DETERMINER = r"(?:the|a|an|my|her|his|their|this|that|its|our|your)"
+_PLAYER_OBJECT_RE = re.compile(
+    rf"\b({_TAKE_VERBS}|{_GIVE_VERBS})\s+(?:\w+\s+)?{_DETERMINER}\s+(\w+)", re.I
+)
+_SENTENCE_RE = re.compile(r"[^.!?]+")
+
+
+def repeats_player_action(text: str, player_input: str) -> Violation | None:
+    """A companion taking, handing over or handling the object the player just acted on.
+
+    Checks first-person narration only (quoted dialogue removed), one sentence at
+    a time, so "flip the vial ... then pocket it" still counts.
+    """
+    targets = {m.group(2).lower() for m in _PLAYER_OBJECT_RE.finditer(player_input)}
+    if not targets:
+        return None
+    narration = _QUOTED_RE.sub(" ", text)
+    # The verb must be the companion's own: after "I", "then", "and" or "to",
+    # with only adverbs between ("I just pocket", "to gently but firmly pry").
+    # Otherwise nouns like "the hand holding the vial" match.
+    own_verb = re.compile(
+        rf"\b(?:I|then|and|to)(?:\s+(?:\w+ly|just|also|but|then))*\s+"
+        rf"(?:{_TAKE_VERBS}|{_GIVE_VERBS}|{_HANDLE_VERBS})\b",
+        re.I,
+    )
+    for sentence in _SENTENCE_RE.findall(narration):
+        if not re.search(r"\bI\b", sentence) or not own_verb.search(sentence):
+            continue
+        for noun in targets:
+            if re.search(rf"\b{re.escape(noun)}s?\b", sentence, re.I):
+                return Violation(
+                    "repeats_player_action",
+                    f"handles the {noun} the player just acted on: …{sentence.strip()[:80]}…",
+                    suggestion=(
+                        "the player already did this; react to what they did "
+                        "instead of doing it yourself or undoing it"
+                    ),
+                )
     return None
 
 

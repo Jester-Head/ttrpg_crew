@@ -61,8 +61,74 @@ _SITUATION_KEYWORDS: dict[str, tuple[str, ...]] = {
     "negotiation": ("deal", "bargain", "price", "pay", "trade", "offer", "debt", "owe", "coin"),
     "moral_dilemma": ("choice", "decide", "spare", "betray", "sacrifice", "refuse", "grief", "mercy", "help", "save", "suffer"),
     "memory": ("memory", "tinctura", "vial", "extract", "refine", "calcine", "fray", "dreg", "quintessa"),
-    "supernatural": ("veil", "spirit", "spiritus", "thin spot", "drift", "ghost", "rite"),
+    "supernatural": ("veil", "spirit", "thin spot", "drift", "ghost", "rite"),
 }
+
+
+# How each situation tag reads inside a prompt line ("the moment involves ...").
+_SITUATION_LABELS: dict[str, str] = {
+    "combat": "a fight",
+    "social": "persuading or reading people",
+    "investigation": "noticing or searching",
+    "negotiation": "a deal",
+    "moral_dilemma": "a moral choice",
+    "memory": "memory and its trade",
+    "supernatural": "the supernatural",
+}
+
+
+def selection_reason(profile: dict[str, Any], text: str) -> str:
+    """Why the selector would favor this companion here: the expertise and
+    trigger words in `text` that match their profile. '' when nothing matches."""
+    lower = text.lower()
+    meta = _selection_meta(profile)
+    situations = _join_and([
+        _SITUATION_LABELS.get(s, s.replace("_", " "))
+        for s in sorted(detect_situations(lower) & set(meta["expertise"]))
+    ])
+    # Hedged ("may") because a keyword can't see context: "leave it alone" and
+    # "don't leave me behind" both match "leave".
+    triggers = _join_and(matched_triggers(meta, lower))
+    if situations and triggers:
+        return f"{situations}, and it may touch on {triggers}"
+    if triggers:
+        return f"something that may touch on {triggers}"
+    return situations
+
+
+def _join_and(items: list[str]) -> str:
+    if len(items) <= 1:
+        return "".join(items)
+    return ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def matched_triggers(meta: dict[str, Any], lower_text: str) -> list[str]:
+    """Labels of the trigger groups with a term in the text (whole words or phrases)."""
+    return [
+        label
+        for label, pattern in meta["triggers"]
+        if pattern.search(lower_text)
+    ]
+
+
+def _trigger_groups(raw: Any) -> list[tuple[str, re.Pattern]]:
+    """`triggers` as (prompt label, compiled pattern) pairs.
+
+    Accepts a plain list (each word is its own group, shown quoted) or a dict of
+    label -> list of words/phrases. Terms match like situation keywords.
+    """
+    if isinstance(raw, dict):
+        groups = [
+            (str(label), terms if isinstance(terms, list) else [terms])
+            for label, terms in raw.items()
+        ]
+    else:
+        groups = [(f'"{str(t).lower()}"', [t]) for t in (raw or [])]
+    return [
+        (label, _keyword_pattern([str(t) for t in terms]))
+        for label, terms in groups
+        if any(str(t).strip() for t in terms)
+    ]
 
 
 def _selection_meta(profile: dict[str, Any]) -> dict[str, Any]:
@@ -70,16 +136,33 @@ def _selection_meta(profile: dict[str, Any]) -> dict[str, Any]:
     return {
         "talkativeness": float(sel.get("talkativeness", 0.5)),
         "expertise": [str(e).lower() for e in (sel.get("expertise") or [])],
-        "triggers": [str(t).lower() for t in (sel.get("triggers") or [])],
+        "triggers": _trigger_groups(sel.get("triggers")),
     }
+
+
+# Whole words or phrases plus common endings, so "look" still matches
+# "looking" but "draw" no longer matches "drawer" and "rite" not "write".
+_INFLECTIONS = r"(?:s|es|d|ed|ing)?"
+
+
+def _keyword_pattern(terms: list[str]) -> re.Pattern:
+    words = "|".join(re.escape(t.lower().strip()) for t in terms if t.strip())
+    return re.compile(rf"\b(?:{words}){_INFLECTIONS}\b")
+
+
+_SITUATION_PATTERNS: dict[str, re.Pattern] = {
+    situation: _keyword_pattern(list(keywords))
+    for situation, keywords in _SITUATION_KEYWORDS.items()
+}
 
 
 def detect_situations(text: str) -> set[str]:
     """Which situation tags (combat/social/...) the text implies. Shared with intent.py."""
+    lower = text.lower()
     return {
         situation
-        for situation, keywords in _SITUATION_KEYWORDS.items()
-        if any(kw in text for kw in keywords)
+        for situation, pattern in _SITUATION_PATTERNS.items()
+        if pattern.search(lower)
     }
 
 
@@ -108,7 +191,7 @@ def _score_companion(
     score = meta["talkativeness"] * weights["talkativeness"]
     if situations & set(meta["expertise"]):
         score += weights["expertise"]
-    if any(trigger in text for trigger in meta["triggers"]):
+    if matched_triggers(meta, text):
         score += weights["trigger"]
     if recent_turns <= 0:
         score += weights["silence"]

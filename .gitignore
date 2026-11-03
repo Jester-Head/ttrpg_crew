@@ -222,4 +222,8 @@ __marimo__/
 .embak/
 logs/
 
+# Local assistant settings
 .claude/
+
+# Current Kavath lorebook, synced by scripts/sync_lore.py; kept private
+knowledge/lore_private/
