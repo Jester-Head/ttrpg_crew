@@ -49,10 +49,14 @@ def companion_messages(
         if part
     )
 
-    user_parts: list[str] = []
+    # Stable rules and the earlier story first; this beat's lines and
+    # directives last, where the model weighs them most.
+    user_parts: list[str] = [cfg["description"].strip()]
     if said_so_far:
         user_parts.append(directive("said_so_far") + "\n" + "\n".join(said_so_far))
-    user_parts.append(cfg["description"].strip())
+    beat_directives = str(merged_vars.get("beat_directives") or "").strip()
+    if beat_directives:
+        user_parts.append(beat_directives)
     if (cfg.get("expected_output") or "").strip():
         user_parts.append("Output: " + cfg["expected_output"].strip())
     if closing:

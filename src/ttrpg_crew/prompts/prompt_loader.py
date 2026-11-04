@@ -39,13 +39,16 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 # variables change per beat, so parse each template string once.
 _template_cache: dict[str, Any] = {}
 
+# Block tags on their own lines leave blank runs behind in literal YAML blocks.
+_BLANK_RUN = re.compile(r"\n[ \t]*(?:\n[ \t]*)+\n")
+
 
 def _render_template(text: str, variables: dict[str, Any]) -> str:
     template = _template_cache.get(text)
     if template is None:
         template = _JINJA_ENV.from_string(text)
         _template_cache[text] = template
-    return template.render(**variables).strip()
+    return _BLANK_RUN.sub("\n\n", template.render(**variables)).strip()
 
 
 def _concat_field(*parts: str | None) -> str | None:

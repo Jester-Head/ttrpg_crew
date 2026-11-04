@@ -401,7 +401,12 @@ class PromptBackedBeatRunner:
                 # The GM task already ran in its own crew; CrewAI reads a
                 # context task's stored output, so it still reaches companions.
                 companion_task = Task(
-                    description=companion_task_config["description"],
+                    description="\n\n".join(
+                        part for part in (
+                            companion_task_config["description"],
+                            companion_vars["beat_directives"],
+                        ) if part
+                    ),
                     expected_output="\n\n".join(
                         part for part in (
                             companion_task_config["expected_output"],
