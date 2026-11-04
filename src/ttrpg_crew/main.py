@@ -74,6 +74,15 @@ def detect_loaded_model(base_url: str) -> str | None:
     return None
 
 
+def model_params(model_id: str, params: dict, overrides: dict | None) -> dict:
+    """Role params with any models.yaml `llm.models` entries matching `model_id` applied."""
+    merged = dict(params)
+    for key, override in (overrides or {}).items():
+        if str(key).lower() in model_id.lower():
+            merged.update(override or {})
+    return merged
+
+
 def _env_flag(name: str, *, default: bool) -> bool:
     """Read an on/off env var properly: '0', 'false', 'no', 'off' disable."""
     raw = os.getenv(name)
@@ -127,6 +136,7 @@ def _build_flow() -> TTRPGFlow:
             model = model_id
         else:
             model = f"openai/{model_id}"
+        params = model_params(model_id, params, llm_cfg.get("models"))
         return LLM(model=model, base_url=url or base_url, api_key=key or api_key, **params)
 
     model_id = os.getenv("LOCAL_LLM_MODEL") or detect_loaded_model(base_url) or "local-model"

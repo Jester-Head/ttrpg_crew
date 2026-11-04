@@ -69,6 +69,13 @@ llm:
     max_tokens: 2000       # caps a looping rewrite — reasoning models (gpt-oss) spend ~300-900 of it thinking first
   tracker:                 # scene tracker (state + suggested actions) — JSON out
     temperature: 0.3       # low for faithful state; a touch of room for varied suggestions
+  # Per-model overrides, matched by a substring of the model id and applied over
+  # every role. Thinking has to be set per model on Ollama: it rejects
+  # reasoning_effort `low` on models that can't think (gemma3 returns a 400),
+  # while gpt-oss ignores `none` and still thinks ~400 tokens per short line.
+  models:
+    gpt-oss:
+      extra_body: {reasoning_effort: low}
 
 # Scene tracker (game/scene_tracker.py): after each beat, one structured-output
 # call records objective / facts / NPCs and offers next moves the player can
