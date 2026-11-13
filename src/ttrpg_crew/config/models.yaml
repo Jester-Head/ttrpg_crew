@@ -69,6 +69,8 @@ llm:
     max_tokens: 2000       # caps a looping rewrite — reasoning models (gpt-oss) spend ~300-900 of it thinking first
   tracker:                 # scene tracker (state + suggested actions) — JSON out
     temperature: 0.3       # low for faithful state; a touch of room for varied suggestions
+    timeout: 120           # the player waits on this call before they can type
+    max_tokens: 1500       # caps a runaway reply, with room for reasoning models to think first (see editor)
   # Per-model overrides, matched by a substring of the model id and applied over
   # every role. Thinking has to be set per model on Ollama: it rejects
   # reasoning_effort `low` on models that can't think (gemma3 returns a 400),
@@ -79,14 +81,15 @@ llm:
 
 # Scene tracker (game/scene_tracker.py): after each beat, one structured-output
 # call records objective / facts / NPCs and offers next moves the player can
-# pick by number. Runs on the moderator's model (LOCAL_MANAGER_MODEL if set).
+# pick by number. Runs on the GM's model (LOCAL_TRACKER_MODEL to change it).
 # Read live.
 scene_tracker:
   enabled: true
-  suggestions: 3             # next moves offered per beat (2-4 reads well)
+  suggestions: 3             # next moves offered per beat (2-4 reads well); 0 = no menu, memory only
   max_suggestion_chars: 90   # longer suggestions are dropped, not trimmed
   max_facts: 12              # durable facts kept; oldest drop off first
-  max_npcs: 10               # named NPCs kept
+  max_npcs: 10               # named NPCs kept; longest unmentioned drops first
+  max_memory_chars: 240      # longest any one fact / NPC / objective / summary may be; longer is dropped
 
 # Adventure checkpoints (game/adventure.py, frame.yaml): after this many beats
 # without reaching the current checkpoint, the GM is told to press. Read live.

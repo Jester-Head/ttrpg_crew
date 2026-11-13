@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from ttrpg_crew.config_loader import config_section
+from ttrpg_crew.game.names import short_name
 from ttrpg_crew.game.schemas import ModeratorSelection
 
 # --------------------------------------------------------------------------- #
@@ -174,7 +175,7 @@ def find_direct_address(
     """(speaker_id, display_name) of the companion the player named, if any."""
     for cid in available_speakers:
         name = str(character_profiles.get(cid, {}).get("name") or cid)
-        first = name.split()[0].lower()
+        first = short_name(name).lower()
         if first and re.search(rf"\b{re.escape(first)}\b", player_lower):
             return cid, name
     return None

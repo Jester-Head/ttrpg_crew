@@ -28,7 +28,7 @@ from dotenv import load_dotenv
 from ttrpg_crew import session_log
 from ttrpg_crew.config_loader import config_section
 from ttrpg_crew.flow import TTRPGFlow
-from ttrpg_crew.game.scene_tracker import pick_suggestion
+from ttrpg_crew.game.scene_tracker import pick_suggestion, tracker_config
 from ttrpg_crew.prompts.prompt_loader import resolve_tier_for_model
 
 
@@ -99,7 +99,8 @@ def _build_flow() -> TTRPGFlow:
         LOCAL_LLM_API_KEY=lm-studio                   # LM Studio ignores the value
         LOCAL_LLM_MODEL=...        # force a model id instead of auto-detecting
         LOCAL_COMPANION_MODEL=...  # model for the AI companions (defaults to main)
-        LOCAL_MANAGER_MODEL=...    # faster model for the moderator + scene tracker
+        LOCAL_MANAGER_MODEL=...    # faster model for the moderator (speaker pick)
+        LOCAL_TRACKER_MODEL=...    # model for the scene tracker (defaults to main)
         LOCAL_EDITOR_MODEL=...     # faster model for the AI-ism editor pass
         LOCAL_EDITOR_BASE_URL=...  # server for the editor model (defaults to main)
         LOCAL_EDITOR_API_KEY=...   # api key for the editor server (defaults to main)
@@ -160,16 +161,18 @@ def _build_flow() -> TTRPGFlow:
         key=os.getenv("LOCAL_EDITOR_API_KEY"),
     )
 
-    # The scene tracker shares the moderator's model (both emit JSON) but has
-    # its own sampling block.
-    tracker_llm = _make_llm(manager_model_id or model_id, _role_params("tracker"))
+    # The tracker runs every beat. On a single server a second model would
+    # swap in and out each time, so it shares the GM's model by default.
+    tracker_model_id = os.getenv("LOCAL_TRACKER_MODEL")
+    tracker_llm = _make_llm(tracker_model_id or model_id, _role_params("tracker"))
 
     if debug:
         print(
             f"[ttrpg] model={model_id}  tier={tier}  "
             f"companions={companion_model_id or model_id}  "
             f"manager={manager_model_id or model_id}  "
-            f"editor={editor_model_id or model_id}  base_url={base_url}"
+            f"editor={editor_model_id or model_id}  "
+            f"tracker={tracker_model_id or model_id}  base_url={base_url}"
         )
 
     # Speaker selection is deterministic by default (fast, no per-beat LLM call).
@@ -197,6 +200,8 @@ def _build_flow() -> TTRPGFlow:
         companion_model=companion_model_id or model_id,
         manager_model=manager_model_id or model_id,
         editor_model=editor_model_id or model_id,
+        tracker_model=tracker_model_id or model_id,
+        scene_tracker="on" if tracker_config()["enabled"] else "off",
         companion_mode=companion_mode,
     )
 
@@ -216,6 +221,33 @@ def _build_flow() -> TTRPGFlow:
 _QUIT = {"quit", "exit", "q", ":q"}
 
 
+def _read_action(suggestions: list[str], *, rolling: bool = False) -> str | None:
+    """Prompt until the player gives an action; None means quit.
+
+    At a roll prompt whatever is typed stands, because the next beat ignores it.
+    """
+    while True:
+        try:
+            typed = input("\n> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            return None
+        if typed.lower() in _QUIT:
+            return None
+        if rolling:
+            return typed
+        action = pick_suggestion(typed, suggestions)
+        if action is None:
+            if suggestions:
+                choices = "1" if len(suggestions) == 1 else f"1-{len(suggestions)}"
+                print(f"(Pick {choices}, or type your own action.)", flush=True)
+            else:
+                print("(No numbered options this beat. Type your action.)", flush=True)
+            continue
+        if action != typed:
+            print(f"> {action}", flush=True)
+        return action
+
+
 def run():
     """Play the game: clean narration in, your action out, repeat.
 
@@ -233,6 +265,15 @@ def run():
     def _print_segment(segment) -> None:
         print(segment.render() + "\n", flush=True)
 
+    def _print_handback(beat) -> None:
+        if beat.pending_roll:
+            print(
+                f"Roll {beat.pending_roll.skill} (DC {beat.pending_roll.dc}) — press Enter to roll.",
+                flush=True,
+            )
+        elif beat.closing_prompt:
+            print(beat.closing_prompt + "\n", flush=True)
+
     player_input = ""
     first = True
     while True:
@@ -245,21 +286,15 @@ def run():
         if rolled:
             print(f"{rolled.describe()}\n", flush=True)
 
-        beat = flow.kickoff(player_input=player_input, on_segment=_print_segment)
-        suggestions: list[str] = []
-        if beat.pending_roll:
-            print(
-                f"Roll {beat.pending_roll.skill} (DC {beat.pending_roll.dc}) — press Enter to roll.",
-                flush=True,
-            )
-        else:
-            if beat.closing_prompt:
-                print(beat.closing_prompt + "\n", flush=True)
-            # Suggested next moves, kept apart from the story so they read as
-            # options, not narration. Free-form typing always works too.
-            suggestions = beat.suggested_actions
-            for number, action in enumerate(suggestions, start=1):
-                print(f"  {number}. {action}", flush=True)
+        beat = flow.kickoff(
+            player_input=player_input,
+            on_segment=_print_segment,
+            on_handback=_print_handback,
+        )
+        rolling = beat.pending_roll is not None
+        suggestions = [] if rolling else beat.suggested_actions
+        for number, action in enumerate(suggestions, start=1):
+            print(f"  {number}. {action}", flush=True)
 
         if first:
             hint = "Pick a number, or type your own action." if suggestions else (
@@ -268,19 +303,11 @@ def run():
             print(f"\n({hint} 'quit' to leave.)", flush=True)
             first = False
 
-        try:
-            player_input = input("\n> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            player_input = "quit"
-
-        if player_input.lower() in _QUIT:
+        action = _read_action(suggestions, rolling=rolling)
+        if action is None:
             print("\nThe gaslight dims. Farewell.")
             break
-
-        picked = pick_suggestion(player_input, suggestions)
-        if picked != player_input:
-            print(f"> {picked}", flush=True)
-            player_input = picked
+        player_input = action
 
 
 if __name__ == "__main__":

@@ -87,7 +87,7 @@ narrative:
     {{ scene_context }}
 
     {% if scene_memory %}
-    Tracked so far (canon for this session; don't contradict it):
+    Scene notes (tracked from earlier beats; keep to them, but where they disagree with the story so far, the story is right):
     {{ scene_memory }}
     {% endif %}
 
@@ -157,7 +157,7 @@ combat:
     {{ scene_context }}
 
     {% if scene_memory %}
-    Tracked so far (canon for this session; don't contradict it):
+    Scene notes (tracked from earlier beats; keep to them, but where they disagree with the story so far, the story is right):
     {{ scene_memory }}
     {% endif %}
 
@@ -191,7 +191,7 @@ social:
     {{ scene_context }}
 
     {% if scene_memory %}
-    Tracked so far (canon for this session; don't contradict it):
+    Scene notes (tracked from earlier beats; keep to them, but where they disagree with the story so far, the story is right):
     {{ scene_memory }}
     {% endif %}
 
@@ -219,7 +219,7 @@ investigation:
     {{ scene_context }}
 
     {% if scene_memory %}
-    Tracked so far (canon for this session; don't contradict it):
+    Scene notes (tracked from earlier beats; keep to them, but where they disagree with the story so far, the story is right):
     {{ scene_memory }}
     {% endif %}
 
@@ -247,7 +247,7 @@ dilemma:
     {{ scene_context }}
 
     {% if scene_memory %}
-    Tracked so far (canon for this session; don't contradict it):
+    Scene notes (tracked from earlier beats; keep to them, but where they disagree with the story so far, the story is right):
     {{ scene_memory }}
     {% endif %}
 
@@ -292,14 +292,14 @@ model_tiers:
     narrative:
       description: |
         Next beat. Party: {{ party_members }}. Context: {{ scene_context }}.
-        {% if scene_memory %}Tracked so far (don't contradict): {{ scene_memory }}{% endif %}
+        {% if scene_memory %}Scene notes (keep to them; the story so far wins where they differ): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (already happened — continue from the last line, stay consistent with every name, fact, and position in it; never re-introduce the scene): {{ recent_story }}{% endif %}
         Player: {{ player_input }}. d20 + modifier vs DC; stakes before rolls; fail forward.
 
     combat:
       description: |
         Combat beat. Context: {{ scene_context }}. Player: {{ player_input }}.
-        {% if scene_memory %}Tracked so far (don't contradict): {{ scene_memory }}{% endif %}
+        {% if scene_memory %}Scene notes (keep to them; the story so far wins where they differ): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (stay consistent; don't re-set the scene): {{ recent_story }}{% endif %}
         Tight pacing. Stakes + DC before rolls. [COMBAT: key] only when fight starts.
 
@@ -316,21 +316,21 @@ model_tiers:
     social:
       description: |
         Next beat — talk, bargain or pressure. Party: {{ party_members }}. Context: {{ scene_context }}.
-        {% if scene_memory %}Tracked so far (don't contradict): {{ scene_memory }}{% endif %}
+        {% if scene_memory %}Scene notes (keep to them; the story so far wins where they differ): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (already happened — continue from the last line, stay consistent with every name, fact, and position in it; never re-introduce the scene): {{ recent_story }}{% endif %}
         Player: {{ player_input }}. The other person answers from their own want, fear and price. Show what the talk wins or costs. d20 + modifier vs DC; stakes before rolls; fail forward.
 
     investigation:
       description: |
         Next beat — searching or working something out. Party: {{ party_members }}. Context: {{ scene_context }}.
-        {% if scene_memory %}Tracked so far (don't contradict): {{ scene_memory }}{% endif %}
+        {% if scene_memory %}Scene notes (keep to them; the story so far wins where they differ): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (already happened — continue from the last line, stay consistent with every name, fact, and position in it; never re-introduce the scene): {{ recent_story }}{% endif %}
         Player: {{ player_input }}. One concrete find, what it took to get, and what stays hidden. d20 + modifier vs DC; stakes before rolls; fail forward.
 
     dilemma:
       description: |
         Next beat — a choice where something is lost either way. Party: {{ party_members }}. Context: {{ scene_context }}.
-        {% if scene_memory %}Tracked so far (don't contradict): {{ scene_memory }}{% endif %}
+        {% if scene_memory %}Scene notes (keep to them; the story so far wins where they differ): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (already happened — continue from the last line, stay consistent with every name, fact, and position in it; never re-introduce the scene): {{ recent_story }}{% endif %}
         Player: {{ player_input }}. Lay the choice out — who's affected, what each path costs, what waiting costs. Don't choose for them or tip the scales.
 
@@ -357,14 +357,14 @@ model_tiers:
     narrative:
       description: |
         GM beat. Player: {{ player_input }}. Scene: {{ scene_context }}.
-        {% if scene_memory %}Known: {{ scene_memory }}{% endif %}
+        {% if scene_memory %}Notes (the story wins if they differ): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (continue it, stay consistent, never restart the scene): {{ recent_story }}{% endif %}
         Party: {{ party_members }}. Fail forward. Never narrate the player.
 
     combat:
       description: |
         Combat. Player: {{ player_input }}. Scene: {{ scene_context }}.
-        {% if scene_memory %}Known: {{ scene_memory }}{% endif %}
+        {% if scene_memory %}Notes (the story wins if they differ): {{ scene_memory }}{% endif %}
         {% if recent_story %}So far: {{ recent_story }}{% endif %}
         Fast pacing. Stakes before rolls. [COMBAT: enemy] only when fight starts.
 
@@ -381,20 +381,20 @@ model_tiers:
     social:
       description: |
         GM beat — talk, bargain or pressure. Player: {{ player_input }}. Scene: {{ scene_context }}.
-        {% if scene_memory %}Known: {{ scene_memory }}{% endif %}
+        {% if scene_memory %}Notes (the story wins if they differ): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (continue it, stay consistent, never restart the scene): {{ recent_story }}{% endif %}
         The other person answers from their own want and price. Show what it wins or costs. Never narrate the player.
 
     investigation:
       description: |
         GM beat — searching. Player: {{ player_input }}. Scene: {{ scene_context }}.
-        {% if scene_memory %}Known: {{ scene_memory }}{% endif %}
+        {% if scene_memory %}Notes (the story wins if they differ): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (continue it, stay consistent, never restart the scene): {{ recent_story }}{% endif %}
         One concrete find, what it cost, what stays hidden. Stakes before rolls. Never narrate the player.
 
     dilemma:
       description: |
         GM beat — a hard choice. Player: {{ player_input }}. Scene: {{ scene_context }}.
-        {% if scene_memory %}Known: {{ scene_memory }}{% endif %}
+        {% if scene_memory %}Notes (the story wins if they differ): {{ scene_memory }}{% endif %}
         {% if recent_story %}Story so far (continue it, stay consistent, never restart the scene): {{ recent_story }}{% endif %}
         Lay out the choice — who's affected, what each path costs. Don't choose for them. Never narrate the player.

@@ -25,7 +25,7 @@ def _model_id(llm: Any) -> str:
     return model.split("/", 1)[1] if model.startswith("openai/") else model
 
 
-def _extra_body(llm: Any) -> dict[str, Any] | None:
+def request_extra_body(llm: Any) -> dict[str, Any] | None:
     extra = (getattr(llm, "additional_params", None) or {}).get("extra_body")
     return extra if isinstance(extra, dict) else None
 
@@ -54,7 +54,7 @@ def chat(
         for attr in _SAMPLING_ATTRS
         if (value := getattr(llm, attr, None)) is not None
     }
-    extra = _extra_body(llm)
+    extra = request_extra_body(llm)
     if extra:
         params["extra_body"] = extra
     if max_tokens:

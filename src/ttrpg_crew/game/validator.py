@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from ttrpg_crew.config_loader import config_section, load_text_lines
+from ttrpg_crew.config_loader import load_text_lines, typed_section
 
 _CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
 
@@ -37,15 +37,7 @@ _DEFAULT_AUDIT = {
 
 def _audit_cfg() -> dict:
     """Resolve audit thresholds from models.yaml, with code defaults."""
-    cfg = config_section("audit")
-    out = dict(_DEFAULT_AUDIT)
-    for key, default in out.items():
-        if key in cfg:
-            try:
-                out[key] = type(default)(cfg[key])
-            except (TypeError, ValueError):
-                pass
-    return out
+    return typed_section("audit", _DEFAULT_AUDIT)
 
 
 def _config_terms(filename: str) -> list[str]:

@@ -1,12 +1,30 @@
 from __future__ import annotations
 
+import json
+
 from pydantic import BaseModel, Field, field_validator
 
 
+def first_json_object(raw: str) -> dict | None:
+    """The first JSON object embedded in `raw`; fences and prose around it are skipped."""
+    decoder = json.JSONDecoder()
+    start = raw.find("{")
+    while start != -1:
+        try:
+            value, _ = decoder.raw_decode(raw, start)
+        except json.JSONDecodeError:
+            value = None
+        if isinstance(value, dict):
+            return value
+        start = raw.find("{", start + 1)
+    return None
+
+
 def _item_text(item: object) -> str:
-    """Flatten one list entry to text ({"name": .., "desc": ..} -> "name: desc")."""
+    """Flatten one list entry to text ({"desc": .., "name": ..} -> "name: desc")."""
     if isinstance(item, dict):
-        return ": ".join(str(v) for v in item.values() if v)
+        name_first = sorted(item.items(), key=lambda pair: pair[0] != "name")
+        return ": ".join(str(value) for _, value in name_first if value)
     return str(item)
 
 
@@ -26,15 +44,23 @@ class SceneUpdate(BaseModel):
     # 2 the one after (the player went straight there), and so on.
     checkpoint_reached: int = 0
 
+    # Small models return loose shapes (null, a bare string, objects). The
+    # validators below keep whatever is usable, so one odd field doesn't cost
+    # the whole update.
+
     @field_validator("suggested_actions", "new_facts", "resolved_facts", "npcs", mode="before")
     @classmethod
-    def _as_string_list(cls, value):
-        # Small models sometimes return one string, null, or objects; keep
-        # whatever text is usable rather than rejecting the whole update.
+    def _as_string_list(cls, value, info):
         if value is None:
             return []
         if isinstance(value, str):
             return [value]
+        if isinstance(value, dict):
+            if "name" in value:
+                return [_item_text(value)]
+            if info.field_name == "npcs":
+                return [f"{key}: {text}" for key, text in value.items() if text]
+            return [str(text) for text in value.values() if text]
         if isinstance(value, list):
             return [_item_text(item) for item in value if item is not None]
         return value
@@ -52,7 +78,18 @@ class SceneUpdate(BaseModel):
     @field_validator("location", "objective", "summary", mode="before")
     @classmethod
     def _as_string(cls, value):
-        return "" if value is None else value
+        if value is None:
+            return ""
+        if isinstance(value, list):
+            return ", ".join(_item_text(item) for item in value if item is not None)
+        if isinstance(value, dict):
+            return _item_text(value)
+        return value if isinstance(value, str) else str(value)
+
+    @field_validator("location_changed", "objective_changed", mode="before")
+    @classmethod
+    def _as_flag(cls, value):
+        return False if value is None else value
 
 
 class ModeratorSelection(BaseModel):

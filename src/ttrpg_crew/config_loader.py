@@ -79,3 +79,33 @@ def config_section(name: str) -> dict[str, Any]:
     """Return one top-level mapping from models.yaml ({} if absent or malformed)."""
     section = load_models_config().get(name)
     return section if isinstance(section, dict) else {}
+
+
+_FALSE_WORDS = ("", "0", "false", "no", "off")
+
+
+def typed_section(name: str, defaults: dict[str, Any]) -> dict[str, Any]:
+    """`defaults` overlaid with the models.yaml section `name`.
+
+    Each value is coerced to its default's type; a missing, blank or
+    uncoercible value keeps the default.
+    """
+    cfg = config_section(name)
+    out = dict(defaults)
+    for key, default in defaults.items():
+        value = cfg.get(key)
+        if value is None:
+            continue
+        try:
+            if isinstance(default, bool):
+                # bool("false") is True, so strings are read by word.
+                out[key] = (
+                    value.strip().lower() not in _FALSE_WORDS
+                    if isinstance(value, str)
+                    else bool(value)
+                )
+            else:
+                out[key] = type(default)(value)
+        except (TypeError, ValueError):
+            pass
+    return out

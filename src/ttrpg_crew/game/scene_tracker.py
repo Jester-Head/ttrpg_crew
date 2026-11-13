@@ -1,41 +1,31 @@
-"""Scene tracker: read a finished beat into scene state and next-move options.
+"""Scene tracker: read a finished beat into scene memory and next-move suggestions.
 
-After each beat, one small structured-output call reads the narration and
-returns where the party is, what they're after, the durable facts and named
-NPCs it established, and a few concrete things the player could do next.
-Adapted from tegridydev/dnd-llm-game's world-update pass (IDCDW licence).
-
-The suggested actions are the point for play: the player can pick one by
-number instead of composing a free-form reply. They live OUTSIDE the prose
-(Beat.suggested_actions, shown by the CLI under the hand-back prompt), so the
-GM's "no option menus" rule still holds for the narration itself.
-
-Everything here is pure (prompt in, text out, state updated in place); the
-LLM call lives in flow.py, so this module tests without a model.
+Pure functions (prompt in, text out, state updated in place); the LLM call is in flow.py.
 """
+# Adapted from tegridydev/dnd-llm-game (IDCDW licence).
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
 from pydantic import ValidationError
 
-from ttrpg_crew.config_loader import config_section
-from ttrpg_crew.game.schemas import SceneUpdate
+from ttrpg_crew.config_loader import typed_section
+from ttrpg_crew.game.names import mentions_name
+from ttrpg_crew.game.schemas import SceneUpdate, first_json_object
 from ttrpg_crew.game.state import GameState
 
 _DEFAULTS = {
     "enabled": True,
-    "suggestions": 3,  # how many next moves to ask for (2-4 reads well)
+    "suggestions": 3,
     "max_suggestion_chars": 90,
-    "max_facts": 12,  # oldest facts drop off first
+    "max_facts": 12,
     "max_npcs": 10,
+    "max_memory_chars": 240,
 }
 
-# Strict JSON schema for the server's structured-output mode. Mirrors
-# SceneUpdate (a test keeps the two in step).
+# Mirrors SceneUpdate; a test keeps the two in step.
 _STRING_LIST = {"type": "array", "items": {"type": "string"}}
 SCENE_UPDATE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -73,33 +63,39 @@ SYSTEM_PROMPT = (
 
 
 def tracker_config() -> dict[str, Any]:
-    """Resolve tracker knobs from models.yaml `scene_tracker:`, with defaults."""
-    cfg = config_section("scene_tracker")
-    out = dict(_DEFAULTS)
-    for key, default in _DEFAULTS.items():
-        if key in cfg:
-            try:
-                out[key] = type(default)(cfg[key])
-            except (TypeError, ValueError):
-                pass
-    return out
-
-
-def _aliases(name: str) -> list[str]:
-    """A character's full name and first name (3+ letters), for matching."""
-    name = (name or "").strip()
-    first = name.split()[0] if name else ""
-    return [alias for alias in dict.fromkeys((name, first)) if len(alias) >= 3]
-
-
-def _mentions(text: str, name: str) -> bool:
-    return any(
-        re.search(rf"\b{re.escape(alias)}\b", text, re.IGNORECASE) for alias in _aliases(name)
-    )
+    """Tracker knobs from models.yaml `scene_tracker:`; negative numbers read as 0."""
+    cfg = typed_section("scene_tracker", _DEFAULTS)
+    return {
+        key: max(0, value) if isinstance(value, int) and not isinstance(value, bool) else value
+        for key, value in cfg.items()
+    }
 
 
 def _bullets(items: list[str]) -> str:
-    return "\n".join(f"- {item}" for item in items) or "None yet"
+    return "\n".join(f"- {item}" for item in items) or "(none)"
+
+
+def _suggestion_rule(count: int, max_chars: int, player: str) -> str:
+    if count <= 0:
+        return "an empty list."
+    if count == 3:
+        distinct = (
+            " Make them distinct: one direct, one social or investigative, one "
+            "cautious or unexpected."
+        )
+    elif count > 1:
+        distinct = " Make each a different kind of move."
+    else:
+        distinct = ""
+    things = "thing" if count == 1 else "things"
+    return (
+        f"{count} short {things} {player} could do next, each under {max_chars} "
+        "characters, written as a command in the player's voice (for example "
+        '"Ask the ferryman who paid him"). Ground each in what the beat shows.'
+        f"{distinct} Never repeat the action just taken, ask for a dice roll, or "
+        f"decide how an action turns out. {player} is the player: never suggest "
+        f"talking to, following, or helping {player}."
+    )
 
 
 def scene_update_messages(
@@ -113,11 +109,7 @@ def scene_update_messages(
     max_suggestion_chars: int = _DEFAULTS["max_suggestion_chars"],
     checkpoints: list[str] | None = None,
 ) -> tuple[str, str]:
-    """Build (system, user) for the tracker call.
-
-    `max_suggestion_chars` should be the same limit clean_suggestions()
-    enforces, so the model is asked for what the filter will keep.
-    """
+    """Build (system, user) for the tracker call."""
     player = protagonist_name or "the player"
     action = player_input.strip() or "(opening scene; no action yet)"
     party = ", ".join(n for n in (protagonist_name, *party_names) if n) or "None"
@@ -133,8 +125,8 @@ def scene_update_messages(
         checkpoint_question = "0."
     user = f"""
 Current state (keep it unless the beat explicitly changes it):
-Location: {state.location or "Unknown"}
-Objective: {state.party_goal or "None yet"}
+Location: {state.location or "(not set)"}
+Objective: {state.party_goal or "(not set)"}
 Established facts:
 {_bullets(state.known_facts)}
 Named NPCs:
@@ -153,17 +145,14 @@ Return:
 - location: a concrete 2-6 word place name. Set location_changed true only if
   the beat moves the party somewhere new; otherwise repeat the current location.
 - objective: the party's immediate goal in 4-14 words. Set objective_changed
-  true only if the beat changes it; otherwise repeat the current objective.
+  true only if the beat changes it; otherwise repeat the current objective. If
+  none is set and the beat gives none, return an empty string.
 - summary: one plain sentence on where things stand right now.
-- suggested_actions: {suggestions} short things {player} could do next, each
-  under {max_suggestion_chars} characters, written as a command in the player's voice (for example
-  "Ask the ferryman who paid him"). Ground each in what the beat shows. Make
-  them distinct: one direct, one social or investigative, one cautious or
-  unexpected. Never repeat the action just taken, ask for a dice roll, or
-  decide how an action turns out. {player} is the player: never suggest
-  talking to, following, or helping {player}.
+- suggested_actions: {_suggestion_rule(suggestions, max_suggestion_chars, player)}
 - new_facts: only durable facts this beat established (a name, a debt, a
-  discovery, a promise). Not mood, weather, or scenery.
+  discovery, a promise). Not mood, weather, or scenery. A line that starts
+  with a party member's name is that character talking, and what they claim
+  is not a fact unless the narration shows it.
 - resolved_facts: existing facts, copied exactly, that this beat made untrue
   or finished.
 - npcs: named non-party characters this beat introduced or changed, each as
@@ -174,31 +163,52 @@ Return:
 
 
 def parse_scene_update(raw: str) -> SceneUpdate | None:
-    """Parse the tracker's reply; None when there is no usable JSON object.
-
-    Tolerates code fences and prose around the object (the plain-call
-    fallback path, when the server ignored structured output).
-    """
-    match = re.search(r"\{.*\}", raw or "", re.DOTALL)
-    if not match:
+    """Parse the tracker's reply; None when it holds no usable update."""
+    data = first_json_object(raw or "")
+    if data is None or not data.keys() & SceneUpdate.model_fields.keys():
         return None
     try:
-        data = json.loads(match.group(0))
         return SceneUpdate.model_validate(data)
-    except (json.JSONDecodeError, ValidationError):
+    except ValidationError:
         return None
 
 
 # Leading list markers a model adds anyway: "1.", "2)", "(a)", "-", "*", "•".
 _MARKER_RE = re.compile(r"^\s*(?:[-*•]|\(?\d+[.)]|\(?[A-Da-d][.)])\s*")
-# Asking for a roll is the engine's call, not a menu item. Narrow on purpose:
-# "Roll the barrel aside" is an action; "Roll for Perception" is not.
+_DOUBLE_QUOTES = "\"“”"
+_QUOTES = _DOUBLE_QUOTES + "'‘’"
+
+_STATS = (
+    "initiative|strength|dexterity|constitution|intelligence|wisdom|charisma|"
+    "acrobatics|animal handling|arcana|athletics|deception|history|insight|"
+    "intimidation|investigation|medicine|nature|perception|performance|"
+    "persuasion|religion|sleight of hand|stealth|survival"
+)
+# Roll requests only: "Roll the barrel aside" and "Join the dice game" are actions.
 _ROLL_RE = re.compile(
-    r"\b(?:dice|d20|saving throw|skill check|ability check)\b"
-    r"|\broll(?:s|ing)?\s+(?:a|an|for|to)\b|\bDC\s*\d",
+    r"\bd20\b|\bDC\s*\d|\bsaving throw\b"
+    rf"|\b(?:{_STATS}|skill|ability|attack)\s+(?:check|roll|save)\b"
+    rf"|\broll(?:s|ing)?\s+(?:for|to\s+hit|(?:an?\s+|your\s+)?(?:{_STATS}|check|save))\b",
     re.IGNORECASE,
 )
-_PLACEHOLDER_RE = re.compile(r"\.\.\.|…|<[^>]*>|\boption\b", re.IGNORECASE)
+# A mid-line ellipsis or the word "option" in a sentence is ordinary prose.
+_PLACEHOLDER_RE = re.compile(
+    r"^(?:\.\.\.|…)|(?:\.\.\.|…)$|<[^>]*>|^[Oo]ption\b|\b[Oo]ption\s*(?:\d+|[A-D])\b"
+)
+
+
+def _unwrap(text: str) -> str:
+    """Strip the list markers and wrapping quotes a model puts around a suggestion."""
+    while True:
+        inner = _MARKER_RE.sub("", text).strip()
+        if len(inner) >= 2 and inner[0] in _QUOTES and inner[-1] in _QUOTES:
+            inner = inner[1:-1].strip()
+        if inner == text:
+            break
+        text = inner
+    if sum(text.count(quote) for quote in _DOUBLE_QUOTES) == 1:
+        text = text.strip(_DOUBLE_QUOTES).strip()
+    return text
 
 
 def clean_suggestions(
@@ -207,30 +217,30 @@ def clean_suggestions(
     protagonist_name: str,
     player_input: str,
     limit: int,
-    max_chars: int = 90,
+    max_chars: int = _DEFAULTS["max_suggestion_chars"],
 ) -> list[str]:
     """Deterministic last pass over the model's suggested actions.
 
-    Drops what a small model gets wrong most often: list markers, quotes,
-    placeholders, roll talk, the action just taken, near-empty or overlong
-    lines, duplicates, and anything that treats the protagonist as someone
-    else in the room.
+    Drops list markers, wrapping quotes, placeholders, roll requests, the
+    action just taken, overlong or near-empty lines, duplicates, and anything
+    that names the protagonist as someone else in the room.
     """
-    taken = " ".join(player_input.split()).casefold()
     cleaned: list[str] = []
+    if limit <= 0:
+        return cleaned
+    taken = " ".join(player_input.split()).casefold().rstrip(".!")
     seen: set[str] = set()
     for value in values:
-        text = _MARKER_RE.sub("", " ".join(str(value).split()))
-        text = text.strip(" \"'“”‘’")
+        text = _unwrap(" ".join(str(value).split()))
         key = text.casefold().rstrip(".!")
         if (
-            len(text) < 4
+            len(text) < 3
             or len(text) > max_chars
             or key in seen
-            or key == taken.rstrip(".!")
+            or key == taken
             or _ROLL_RE.search(text)
             or _PLACEHOLDER_RE.search(text)
-            or _mentions(text, protagonist_name)
+            or mentions_name(text, protagonist_name, match_case=True)
         ):
             continue
         seen.add(key)
@@ -240,9 +250,25 @@ def clean_suggestions(
     return cleaned
 
 
-def _npc_key(entry: str) -> str:
+_PLACEHOLDERS = frozenset({"", "none", "none yet", "unknown", "n/a", "null", "not set", "tbd"})
+
+
+def _tidy(value: str, max_chars: int) -> str:
+    """Whitespace-collapsed text; "" for a placeholder or anything over max_chars."""
+    text = " ".join(str(value).split())
+    if len(text) > max_chars or text.casefold().strip(" .()-") in _PLACEHOLDERS:
+        return ""
+    return text
+
+
+def _newest(items: list[str], count: int) -> list[str]:
+    # items[-0:] is the whole list, so a cap of zero needs its own branch.
+    return items[-count:] if count > 0 else []
+
+
+def _npc_name(entry: str) -> str:
     """The name part of "Name: description" (or "Name - ...", "Name (...)")."""
-    return re.split(r"\s*[:(—–]\s*|\s+-\s+", entry, maxsplit=1)[0].strip().casefold()
+    return re.split(r"\s*[:(—–]\s*|\s+-\s+", entry, maxsplit=1)[0].strip()
 
 
 def apply_scene_update(
@@ -257,47 +283,46 @@ def apply_scene_update(
 ) -> None:
     """Fold one tracker update into the game state, in place.
 
-    A [LOCATION:] tag the GM wrote this beat outranks the tracker's guess, and
-    the tracker only moves location/objective when it flags a real change, so a
-    vague reply can't erase what the state already knows.
+    A [LOCATION:] tag the GM wrote this beat outranks the tracker's reading,
+    and location/objective only move when the tracker flags a change.
     """
     cfg = config or tracker_config()
+    cap = cfg["max_memory_chars"]
 
-    location = " ".join(update.location.split())
+    location = _tidy(update.location, cap)
     if location and update.location_changed and not tagged_location:
         state.location = location
 
-    objective = " ".join(update.objective.split())
+    objective = _tidy(update.objective, cap)
     if objective and (update.objective_changed or not state.party_goal):
         state.party_goal = objective
 
-    summary = " ".join(update.summary.split())
+    summary = _tidy(update.summary, cap)
     if summary:
         state.scene_summary = summary
 
-    resolved = {" ".join(f.split()).casefold() for f in update.resolved_facts}
-    facts = [f for f in state.known_facts if f.casefold() not in resolved]
-    known = {f.casefold() for f in facts}
+    resolved = {" ".join(fact.split()).casefold() for fact in update.resolved_facts}
+    facts = [fact for fact in state.known_facts if fact.casefold() not in resolved]
+    known = {fact.casefold() for fact in facts}
     for fact in update.new_facts:
-        fact = " ".join(fact.split())
+        fact = _tidy(fact, cap)
         if fact and fact.casefold() not in known:
             facts.append(fact)
             known.add(fact.casefold())
-    state.known_facts = facts[-cfg["max_facts"]:]
+    state.known_facts = _newest(facts, cfg["max_facts"])
 
-    party = [n for n in (protagonist_name, *party_names) if n]
+    party = [name for name in (protagonist_name, *party_names) if name]
     npcs = list(state.active_npcs)
     for entry in update.npcs:
-        entry = " ".join(entry.split())
-        key = _npc_key(entry)
-        if not key or any(_mentions(key, name) for name in party):
+        entry = _tidy(entry, cap)
+        name = _npc_name(entry)
+        if not name or any(mentions_name(name, member) for member in party):
             continue
-        existing = next((i for i, e in enumerate(npcs) if _npc_key(e) == key), None)
-        if existing is None:
-            npcs.append(entry)
-        else:
-            npcs[existing] = entry
-    state.active_npcs = npcs[-cfg["max_npcs"]:]
+        # Re-appending keeps the list in last-mentioned order, so the cap
+        # drops whoever has gone longest without one.
+        npcs = [kept for kept in npcs if _npc_name(kept).casefold() != name.casefold()]
+        npcs.append(entry)
+    state.active_npcs = _newest(npcs, cfg["max_npcs"])
 
     state.suggested_actions = clean_suggestions(
         update.suggested_actions,
@@ -322,9 +347,18 @@ def format_scene_memory(state: GameState) -> str:
     return "\n".join(lines)
 
 
-def pick_suggestion(player_input: str, suggestions: list[str]) -> str:
-    """Turn a bare number into the matching suggested action; else pass through."""
+_CHOICE_RE = re.compile(r"#?\s*(\d{1,3})\s*[.)]?", re.ASCII)
+
+
+def pick_suggestion(player_input: str, suggestions: list[str]) -> str | None:
+    """Resolve what the player typed against this beat's numbered suggestions.
+
+    A bare number picks that suggestion; a number with no matching suggestion
+    returns None so the caller can ask again. Anything else passes through.
+    """
     text = player_input.strip()
-    if text.isdigit() and 1 <= int(text) <= len(suggestions):
-        return suggestions[int(text) - 1]
-    return text
+    choice = _CHOICE_RE.fullmatch(text)
+    if choice is None:
+        return text
+    number = int(choice.group(1))
+    return suggestions[number - 1] if 1 <= number <= len(suggestions) else None

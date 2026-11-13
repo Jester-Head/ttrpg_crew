@@ -15,7 +15,6 @@ Each kickoff() call runs one beat:
 
 from __future__ import annotations
 
-import json
 import re
 import time
 from typing import Any
@@ -34,7 +33,7 @@ from ttrpg_crew.game.scene_tracker import (
     scene_update_messages,
     tracker_config,
 )
-from ttrpg_crew.game.schemas import ModeratorSelection
+from ttrpg_crew.game.schemas import ModeratorSelection, first_json_object
 from ttrpg_crew.game.adventure import guidance, load_adventure, visible_cast
 from ttrpg_crew.game.moves import gm_task_key
 from ttrpg_crew.game.rolls import RollRequest, RollResult, resolve_roll, roll_allowed
@@ -116,9 +115,7 @@ class TTRPGFlow:
         # The editor fixes flagged output; model-agnostic, defaults to the main
         # model. Point it at a faster model later if desired.
         self.editor_llm = editor_llm or llm
-        # The scene tracker emits JSON like the moderator, so it defaults to
-        # the moderator's model.
-        self.tracker_llm = tracker_llm or self.manager_llm
+        self.tracker_llm = tracker_llm or llm
         self.transcript = Transcript()
         # A [ROLL:] the GM called last beat, the task key it was called under,
         # and the engine's result once rolled.
@@ -350,11 +347,9 @@ class TTRPGFlow:
         Tolerates code fences and surrounding prose, and drops any selected
         ids that are not actually available speakers.
         """
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if not match:
+        data = first_json_object(raw)
+        if data is None:
             return None
-
-        data = json.loads(match.group(0))
         selection = ModeratorSelection.model_validate(data)
 
         allowed = set(available_speakers)
@@ -370,12 +365,17 @@ class TTRPGFlow:
         *,
         player_input: str = "",
         on_segment: Any = None,
+        on_handback: Any = None,
         selection: ModeratorSelection | None = None,
         gm_text: str | None = None,
         gm_only: bool = False,
     ) -> Any:
         """Run one beat. `selection`, `gm_text` and `gm_only` let the A/B
-        harness give every arm identical speakers and GM narration."""
+        harness give every arm identical speakers and GM narration.
+
+        `on_handback` gets the beat once its text is final, before the scene
+        tracker runs.
+        """
         beat_start = time.perf_counter()
         # After a roll call, this beat narrates the result. Whatever the player
         # typed is ignored, so a check can't be skipped once its DC is known.
@@ -528,7 +528,14 @@ class TTRPGFlow:
             )
         tagged_location = self._advance_scene(str(result))
 
-        # 7. Read the finished beat into scene memory + next-move suggestions.
+        # The hand-back goes out before the tracker call, so the player isn't
+        # left waiting on a second generation to see it.
+        if on_handback is not None:
+            try:
+                on_handback(result)
+            except Exception as exc:
+                session_log.diag(f"[segment] on_handback callback failed: {exc}")
+
         tracker_start = time.perf_counter()
         result.suggested_actions = self._track_scene(
             str(result), player_input, tagged_location=tagged_location
